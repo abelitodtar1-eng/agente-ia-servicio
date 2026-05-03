@@ -31,6 +31,16 @@ export interface CreatedEvent {
 }
 
 function getAuth(): GoogleAuth | OAuth2Client {
+  // Opción 1: JSON inline (recomendado para deploys cloud)
+  if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+    const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+    return new GoogleAuth({
+      credentials,
+      scopes: ["https://www.googleapis.com/auth/calendar"],
+    });
+  }
+
+  // Opción 2: archivo (desarrollo local)
   if (process.env.GOOGLE_SERVICE_ACCOUNT_PATH) {
     const keyFile = path.resolve(process.env.GOOGLE_SERVICE_ACCOUNT_PATH);
     return new GoogleAuth({
@@ -39,6 +49,7 @@ function getAuth(): GoogleAuth | OAuth2Client {
     });
   }
 
+  // Opción 3: OAuth2 con refresh token
   const oauth2 = new OAuth2Client(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET
