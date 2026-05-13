@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deleteConversation, updateConversationName } from "@/lib/db";
+import { deleteConversation, updateConversationName, updateConversationPhoneAlias } from "@/lib/db";
 
 interface Ctx {
   params: Promise<{ conversationId: string }>;
@@ -21,10 +21,12 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   if (isNaN(id)) {
     return NextResponse.json({ error: "ID inválido" }, { status: 400 });
   }
-  const body = await req.json() as { name?: string };
-  if (typeof body.name !== "string") {
-    return NextResponse.json({ error: "name requerido" }, { status: 400 });
+  const body = await req.json() as { name?: string; phone_alias?: string };
+  if (typeof body.name === "string") {
+    updateConversationName(id, body.name);
   }
-  updateConversationName(id, body.name);
+  if (typeof body.phone_alias === "string") {
+    updateConversationPhoneAlias(id, body.phone_alias);
+  }
   return NextResponse.json({ ok: true });
 }
