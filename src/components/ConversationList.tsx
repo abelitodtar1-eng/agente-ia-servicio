@@ -48,13 +48,16 @@ export function ConversationList({ conversations, selectedId, onSelect }: Conver
                 {c.name ?? c.phone}
               </span>
               <span
-                className={`shrink-0 text-xs px-1.5 py-0.5 rounded-full font-medium ${
+                className={`shrink-0 flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full font-medium ${
                   c.mode === "AI"
                     ? "bg-emerald-100 text-emerald-700"
-                    : "bg-amber-100 text-amber-700"
+                    : "bg-red-100 text-red-700"
                 }`}
               >
-                {c.mode === "AI" ? "IA" : "H"}
+                {c.mode === "HUMAN" && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                )}
+                {c.mode === "AI" ? "IA" : "Humano"}
               </span>
             </div>
             <div className="flex items-center justify-between mt-0.5">

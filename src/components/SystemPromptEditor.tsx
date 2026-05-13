@@ -114,9 +114,10 @@ export function SystemPromptEditor() {
             </button>
           </div>
 
-          <div className="mx-5 mt-4 px-3 py-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
-            Los cambios se aplican al instante — el próximo mensaje que reciba el bot ya usará el
-            nuevo prompt. No hace falta reiniciar.
+          <div className="mx-5 mt-4 px-3 py-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700 space-y-1">
+            <p><strong>Agente de triage:</strong> este prompt define cuándo el bot maneja el mensaje y cuándo escala a un humano.</p>
+            <p>Respuesta esperada del prompt: <code className="bg-blue-100 px-1 rounded">{"{"}"action":"handle"{"}"}</code> o <code className="bg-blue-100 px-1 rounded">{"{"}"action":"escalate"{"}"}</code></p>
+            <p>Los cambios se aplican al instante — no hace falta reiniciar.</p>
           </div>
 
           <div className="flex-1 overflow-y-auto px-5 py-4">

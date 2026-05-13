@@ -10,8 +10,10 @@ import {
   getAppointmentsByConversation,
   getSystemPrompt,
   getWebhookUrl,
+  setMode,
   type Conversation,
 } from "../db";
+import { triageMessage } from "../triage";
 
 function extractText(msg: proto.IWebMessageInfo): string | null {
   return (
@@ -98,6 +100,16 @@ export async function handleIncomingMessage(
   if (mode !== "AI") return;
 
   try {
+    const decision = await triageMessage(text);
+    if (decision === "escalate") {
+      setMode(conversation.id, "HUMAN");
+      const escMsg = "Te estoy conectando con un agente humano. Por favor espera un momento.";
+      insertMessage(conversation.id, "assistant", escMsg);
+      await sock.sendMessage(remoteJid, { text: escMsg });
+      console.log(`[handler] escalated to HUMAN phone=${phone}`);
+      return;
+    }
+
     console.log(`[handler] → n8n phone=${phone}`);
     const reply = await processWithN8N(phone, text);
     insertMessage(conversation.id, "assistant", reply);
