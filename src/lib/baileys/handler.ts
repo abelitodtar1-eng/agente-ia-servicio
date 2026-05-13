@@ -9,12 +9,9 @@ import {
   cancelAppointment as cancelAppointmentDB,
   getAppointmentsByConversation,
   getSystemPrompt,
+  getWebhookUrl,
   type Conversation,
 } from "../db";
-
-const N8N_WEBHOOK_URL =
-  process.env.N8N_WEBHOOK_URL ??
-  "https://dtar-n8n.oj16f5.easypanel.host/webhook/33c121cd-ad30-4531-b77a-237170f34098";
 
 function extractText(msg: proto.IWebMessageInfo): string | null {
   return (
@@ -28,7 +25,9 @@ async function processWithN8N(phone: string, message: string): Promise<string> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60_000);
   try {
-    const resp = await fetch(N8N_WEBHOOK_URL, {
+    const webhookUrl = process.env.N8N_WEBHOOK_URL ?? getWebhookUrl();
+    if (!webhookUrl) throw new Error("Webhook URL no configurada");
+    const resp = await fetch(webhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone: `${phone}@s.whatsapp.net`, message }),
