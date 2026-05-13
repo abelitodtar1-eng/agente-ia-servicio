@@ -9,6 +9,7 @@ import { ContactsView } from "./ContactsView";
 interface Conversation {
   id: number;
   phone: string;
+  phone_alias: string | null;
   name: string | null;
   mode: "AI" | "HUMAN";
   last_message_at: number | null;
@@ -79,6 +80,12 @@ export function ConnectionGate() {
     );
   }
 
+  function handlePhoneAliasUpdated(id: number, alias: string) {
+    setConversations((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, phone_alias: alias.trim() || null } : c))
+    );
+  }
+
   if (checking) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -136,6 +143,7 @@ export function ConnectionGate() {
           <ContactsView
             conversations={conversations}
             onNameUpdated={handleNameUpdated}
+            onPhoneAliasUpdated={handlePhoneAliasUpdated}
           />
         </div>
       ) : (
