@@ -32,20 +32,24 @@ export async function triageMessage(message: string): Promise<"handle" | "escala
 
   try {
     const response = await ollamaClient.chat.completions.create({
-      model: process.env.TRIAGE_MODEL ?? "phi3:mini",
+      model: process.env.TRIAGE_MODEL ?? "qwen2.5:7b",
       messages: [
-        { role: "system", content: systemPrompt },
+        {
+          role: "system",
+          content: systemPrompt + '\n\nIMPORTANT: Reply with ONLY valid JSON, nothing else. No explanation. No markdown. Example: {"action":"handle"}',
+        },
         { role: "user", content: message },
       ],
-      max_tokens: 30,
+      max_tokens: 20,
     });
 
-    const raw = response.choices[0].message.content ?? "";
+    const raw = (response.choices[0].message.content ?? "").trim();
     try {
       const data = JSON.parse(raw) as { action?: string };
       return data.action === "escalate" ? "escalate" : "handle";
     } catch {
-      return raw.toLowerCase().includes("escalate") ? "escalate" : "handle";
+      // strict: only escalate if raw is exactly the escalate JSON — no text fallback
+      return "handle";
     }
   } catch (err) {
     console.error("[triage] llm error, defaulting to handle:", err instanceof Error ? err.message : err);
