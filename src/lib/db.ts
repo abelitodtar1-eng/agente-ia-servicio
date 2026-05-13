@@ -16,6 +16,7 @@ db.exec(`
     phone TEXT UNIQUE NOT NULL,
     name TEXT,
     mode TEXT CHECK(mode IN ('AI','HUMAN')) NOT NULL DEFAULT 'AI',
+    phone_alias TEXT,
     last_message_at INTEGER,
     created_at INTEGER NOT NULL DEFAULT (unixepoch())
   );
@@ -85,6 +86,7 @@ export interface Conversation {
   phone: string;
   name: string | null;
   mode: "AI" | "HUMAN";
+  phone_alias: string | null;
   last_message_at: number | null;
   created_at: number;
 }
@@ -158,6 +160,10 @@ export function deleteConversation(conversationId: number): void {
 
 export function updateConversationName(id: number, name: string): void {
   db.prepare("UPDATE conversations SET name = ? WHERE id = ?").run(name.trim() || null, id);
+}
+
+export function updateConversationPhoneAlias(id: number, phoneAlias: string): void {
+  db.prepare("UPDATE conversations SET phone_alias = ? WHERE id = ?").run(phoneAlias.trim() || null, id);
 }
 
 
