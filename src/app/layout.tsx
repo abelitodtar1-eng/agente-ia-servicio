@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "IA Founders — Clínica Dental",
-  description: "Dashboard del agente WhatsApp para Clínica Dental Sonríe Bien",
+  title: "CRM DTAR",
+  description: "Dashboard CRM DTAR — Agente WhatsApp",
 };
 
 export default function RootLayout({
