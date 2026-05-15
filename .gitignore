@@ -10,7 +10,7 @@ out/
 .env.*.local
 
 # Sesión WhatsApp — datos privados, no versionar
-auth/
+/auth/
 
 # Base de datos local — no versionar
 data/
