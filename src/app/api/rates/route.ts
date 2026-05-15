@@ -12,10 +12,11 @@ export async function GET() {
     }
   );
   if (!res.ok) return NextResponse.json({ error: "fetch_failed" }, { status: 502 });
-  const data = await res.json() as { tasas?: { USD?: number; MLC?: number } };
+  const data = await res.json() as { tasas?: { USD?: number; MLC?: number; EUR?: number } };
   return NextResponse.json({
     USD: data.tasas?.USD ?? null,
     MLC: data.tasas?.MLC ?? null,
+    EUR: data.tasas?.EUR ?? null,
     updatedAt: new Date().toISOString(),
   });
 }

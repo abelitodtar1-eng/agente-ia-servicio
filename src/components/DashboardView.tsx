@@ -265,10 +265,10 @@ export function DashboardView() {
   const [catFilter, setCatFilter]       = useState("Todos");
   const [urgenciaFilter, setUrgFilter]  = useState("Todos");
   const [search, setSearch]             = useState("");
-  const [rates, setRates] = useState<{ USD: number | null; MLC: number | null } | null>(null);
+  const [rates, setRates] = useState<{ USD: number | null; MLC: number | null; EUR: number | null } | null>(null);
 
   useEffect(() => {
-    fetch("/api/rates").then(r => r.ok ? r.json() : null).then((d: { USD: number | null; MLC: number | null } | null) => setRates(d));
+    fetch("/api/rates").then(r => r.ok ? r.json() : null).then((d: { USD: number | null; MLC: number | null; EUR: number | null } | null) => setRates(d));
   }, []);
 
   const load = useCallback(async () => {
@@ -344,15 +344,20 @@ export function DashboardView() {
         </h2>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           {rates && (
-            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              <span style={{ fontSize: 9, color: MUTED, textTransform: "uppercase", letterSpacing: ".5px" }}>El Toque</span>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <span style={{ fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: ".5px" }}>El Toque</span>
               {rates.USD != null && (
-                <span style={{ fontSize: 11, fontWeight: 700, color: TEAL, background: "rgba(0,212,170,.1)", padding: "2px 8px", borderRadius: 20 }}>
-                  USD {rates.USD.toFixed(0)}
+                <span style={{ fontSize: 14, fontWeight: 700, color: TEAL, background: "rgba(0,212,170,.1)", padding: "3px 12px", borderRadius: 20 }}>
+                  $ {rates.USD.toFixed(0)}
+                </span>
+              )}
+              {rates.EUR != null && (
+                <span style={{ fontSize: 14, fontWeight: 700, color: PRP, background: "rgba(108,99,255,.1)", padding: "3px 12px", borderRadius: 20 }}>
+                  € {rates.EUR.toFixed(0)}
                 </span>
               )}
               {rates.MLC != null && (
-                <span style={{ fontSize: 11, fontWeight: 700, color: YELL, background: "rgba(255,209,102,.1)", padding: "2px 8px", borderRadius: 20 }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: YELL, background: "rgba(255,209,102,.1)", padding: "3px 12px", borderRadius: 20 }}>
                   MLC {rates.MLC.toFixed(0)}
                 </span>
               )}
