@@ -17,6 +17,7 @@ interface HomeData {
   unreadTotal: number; conversations: HomeConv[];
   pendingPayments: PendingPayment[]; pendingCount: number;
   ventasHoy: number; ventasTotal: number;
+  totalContactos: number; totalFacturas: number; mensajesHoy: number;
 }
 interface Rates { USD: number | null; MLC: number | null; EUR: number | null }
 interface CriticalProduct { DESCRIPCIÓN: string; diasRestantes: number | null; urgencia: string }
@@ -44,14 +45,16 @@ export function HomeView({ onGoToConversation }: { onGoToConversation: (id: numb
   const [home, setHome] = useState<HomeData | null>(null);
   const [rates, setRates] = useState<Rates | null>(null);
   const [criticals, setCriticals] = useState<CriticalProduct[]>([]);
+  const [totalProductos, setTotalProductos] = useState<number | null>(null);
 
   useEffect(() => {
     fetch("/api/home").then(r => r.ok ? r.json() : null).then((d: HomeData | null) => setHome(d));
     fetch("/api/rates").then(r => r.ok ? r.json() : null).then((d: Rates | null) => setRates(d));
-    fetch("/api/dashboard").then(r => r.ok ? r.json() : null).then((d: { productos?: CriticalProduct[] } | null) => {
+    fetch("/api/dashboard").then(r => r.ok ? r.json() : null).then((d: { productos?: CriticalProduct[]; kpis?: { totalProductos?: number } } | null) => {
       if (d?.productos) {
         setCriticals(d.productos.filter(p => p.urgencia === "CRITICO" || p.urgencia === "COMPRAR"));
       }
+      if (d?.kpis?.totalProductos != null) setTotalProductos(d.kpis.totalProductos);
     });
   }, []);
 
@@ -73,12 +76,19 @@ export function HomeView({ onGoToConversation }: { onGoToConversation: (id: numb
 
       <div style={{ padding: "20px 24px" }}>
 
-        {/* KPI row */}
-        <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
+        {/* KPI row 1 */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 12 }}>
           <KpiCard icon="📨" label="Sin leer" value={home?.unreadTotal ?? "—"} accent={home?.unreadTotal ? RED : TEAL} />
           <KpiCard icon="💳" label="Cobros pendientes" value={home?.pendingCount ?? "—"} accent={home?.pendingCount ? YELL : TEAL} />
           <KpiCard icon="🛒" label="Ventas (Hoy)" value={home?.ventasHoy ?? "—"} accent={home?.ventasHoy ? TEAL : MUTED} />
           <KpiCard icon="📦" label="Comprar esta semana" value={criticals.filter(p => p.urgencia === "COMPRAR").length || "—"} accent={YELL} />
+        </div>
+        {/* KPI row 2 */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 20 }}>
+          <KpiCard icon="👤" label="Contactos" value={home?.totalContactos ?? "—"} accent={PRP} />
+          <KpiCard icon="🧾" label="Facturas" value={home?.totalFacturas ?? "—"} accent={PRP} />
+          <KpiCard icon="📊" label="Productos" value={totalProductos ?? "—"} accent={TEAL} />
+          <KpiCard icon="💬" label="Mensajes (Hoy)" value={home?.mensajesHoy ?? "—"} accent={MUTED} />
         </div>
 
         {/* Main grid */}

@@ -28,5 +28,17 @@ export async function GET() {
     `SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total FROM payments WHERE status = 'completed' AND created_at >= ?`
   ).get(todayStart) as { count: number; total: number };
 
-  return NextResponse.json({ unreadTotal, conversations, pendingPayments, pendingCount, ventasHoy, ventasTotal });
+  const { count: totalContactos } = db.prepare(
+    `SELECT COUNT(*) as count FROM conversations`
+  ).get() as { count: number };
+
+  const { count: totalFacturas } = db.prepare(
+    `SELECT COUNT(*) as count FROM payments`
+  ).get() as { count: number };
+
+  const { count: mensajesHoy } = db.prepare(
+    `SELECT COUNT(*) as count FROM messages WHERE created_at >= ?`
+  ).get(todayStart) as { count: number };
+
+  return NextResponse.json({ unreadTotal, conversations, pendingPayments, pendingCount, ventasHoy, ventasTotal, totalContactos, totalFacturas, mensajesHoy });
 }
