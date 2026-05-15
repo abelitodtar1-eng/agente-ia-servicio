@@ -115,6 +115,7 @@ if (_userCount === 0) {
 // Migrations — safe to run on every startup (no-op if column already exists)
 try { db.exec("ALTER TABLE conversations ADD COLUMN phone_alias TEXT"); } catch {}
 try { db.exec("ALTER TABLE conversations ADD COLUMN last_message_at INTEGER"); } catch {}
+try { db.exec("ALTER TABLE conversations ADD COLUMN unread_count INTEGER NOT NULL DEFAULT 0"); } catch {}
 
 export interface Conversation {
   id: number;
@@ -123,6 +124,7 @@ export interface Conversation {
   mode: "AI" | "HUMAN";
   phone_alias: string | null;
   last_message_at: number | null;
+  unread_count: number;
   created_at: number;
 }
 
@@ -221,6 +223,13 @@ export function insertMessage(
   db.prepare("UPDATE conversations SET last_message_at = unixepoch() WHERE id = ?").run(
     conversationId
   );
+  if (role === "user") {
+    db.prepare("UPDATE conversations SET unread_count = unread_count + 1 WHERE id = ?").run(conversationId);
+  }
+}
+
+export function markConversationRead(conversationId: number): void {
+  db.prepare("UPDATE conversations SET unread_count = 0 WHERE id = ?").run(conversationId);
 }
 
 export function getMessages(conversationId: number): Message[] {

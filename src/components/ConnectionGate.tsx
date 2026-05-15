@@ -16,6 +16,7 @@ interface Conversation {
   name: string | null;
   mode: "AI" | "HUMAN";
   last_message_at: number | null;
+  unread_count: number;
 }
 
 interface ConnectionState {
@@ -81,6 +82,14 @@ export function ConnectionGate() {
     setPhone(null);
     setSelectedId(null);
     setConversations([]);
+  }
+
+  function handleSelect(id: number) {
+    setSelectedId(id);
+    fetch(`/api/conversations/${id}/read`, { method: "PATCH" });
+    setConversations((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, unread_count: 0 } : c))
+    );
   }
 
   function handleDelete() {
@@ -211,7 +220,7 @@ export function ConnectionGate() {
             <ConversationList
               conversations={conversations}
               selectedId={selectedId}
-              onSelect={setSelectedId}
+              onSelect={handleSelect}
             />
           </aside>
           <main className="flex-1 overflow-hidden">

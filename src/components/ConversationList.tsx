@@ -6,6 +6,7 @@ interface Conversation {
   name: string | null;
   mode: "AI" | "HUMAN";
   last_message_at: number | null;
+  unread_count: number;
 }
 
 interface ConversationListProps {
@@ -46,6 +47,11 @@ export function ConversationList({ conversations, selectedId, onSelect }: Conver
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm font-medium text-gray-900 truncate">
                 {c.name ?? c.phone}
+                {c.unread_count > 0 && (
+                  <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-blue-600 text-white rounded-full">
+                    {c.unread_count > 99 ? "99+" : c.unread_count}
+                  </span>
+                )}
               </span>
               <span
                 className={`shrink-0 flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full font-medium ${
