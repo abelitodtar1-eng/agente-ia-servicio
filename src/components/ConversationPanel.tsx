@@ -10,14 +10,6 @@ interface Message {
   created_at: number;
 }
 
-interface Appointment {
-  id: number;
-  service: string;
-  professional: string | null;
-  starts_at: number;
-  status: "confirmed" | "cancelled" | "pending";
-}
-
 interface Conversation {
   id: number;
   phone: string;
@@ -33,16 +25,13 @@ interface ConversationPanelProps {
 
 export function ConversationPanel({ conversation, onModeChange, onDelete }: ConversationPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const mode = conversation.mode;
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const [showAppointments, setShowAppointments] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadMessages();
-    loadAppointments();
   }, [conversation.id]);
 
   useEffect(() => {
@@ -57,11 +46,6 @@ export function ConversationPanel({ conversation, onModeChange, onDelete }: Conv
   async function loadMessages() {
     const res = await fetch(`/api/messages/${conversation.id}`);
     if (res.ok) setMessages(await res.json());
-  }
-
-  async function loadAppointments() {
-    const res = await fetch(`/api/appointments/${conversation.id}`);
-    if (res.ok) setAppointments(await res.json());
   }
 
   async function sendMessage() {
@@ -97,12 +81,6 @@ export function ConversationPanel({ conversation, onModeChange, onDelete }: Conv
           <p className="text-xs text-gray-400">{conversation.phone}</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowAppointments(!showAppointments)}
-            className="text-xs text-blue-600 hover:underline"
-          >
-            Citas ({appointments.filter((a) => a.status === "confirmed").length})
-          </button>
           <ModeToggle conversationId={conversation.id} mode={mode} onChange={handleModeChange} />
           <button
             onClick={handleDelete}
@@ -112,37 +90,6 @@ export function ConversationPanel({ conversation, onModeChange, onDelete }: Conv
           </button>
         </div>
       </div>
-
-      {showAppointments && appointments.length > 0 && (
-        <div className="px-4 py-3 bg-blue-50 border-b border-blue-100">
-          <p className="text-xs font-medium text-blue-800 mb-2">Citas del paciente</p>
-          <div className="space-y-1">
-            {appointments.map((a) => (
-              <div key={a.id} className="flex items-center gap-2 text-xs text-blue-700">
-                <span
-                  className={`w-1.5 h-1.5 rounded-full ${
-                    a.status === "confirmed"
-                      ? "bg-emerald-500"
-                      : a.status === "cancelled"
-                      ? "bg-red-400"
-                      : "bg-amber-400"
-                  }`}
-                />
-                <span>
-                  {new Date(a.starts_at * 1000).toLocaleDateString("es-ES", {
-                    day: "numeric",
-                    month: "short",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}{" "}
-                  · {a.service}
-                  {a.professional ? ` · ${a.professional}` : ""}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div className="flex-1 overflow-y-auto px-4 py-4 bg-gray-50">
         {messages.map((m) => (
