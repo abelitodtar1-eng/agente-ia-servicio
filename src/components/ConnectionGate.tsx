@@ -10,6 +10,7 @@ import { WebhookView } from "./WebhookView";
 import { DashboardView } from "./DashboardView";
 import { ChatbotView } from "./ChatbotView";
 import { HomeView } from "./HomeView";
+import { TiendaView } from "./TiendaView";
 
 interface Conversation {
   id: number;
@@ -26,7 +27,7 @@ interface ConnectionState {
   phone: string | null;
 }
 
-type Tab = "home" | "conversations" | "contacts" | "webhook" | "dashboard" | "chat";
+type Tab = "home" | "conversations" | "contacts" | "webhook" | "dashboard" | "chat" | "tienda";
 
 export function ConnectionGate() {
   const router = useRouter();
@@ -135,6 +136,7 @@ export function ConnectionGate() {
     { key: "webhook", label: "Webhook" },
     { key: "dashboard", label: "Dashboard" },
     { key: "chat", label: "Chat IA" },
+    { key: "tienda", label: "Tienda" },
   ];
 
   return (
@@ -194,6 +196,10 @@ export function ConnectionGate() {
       {tab === "home" ? (
         <div style={{ flex: 1, overflow: "hidden" }}>
           <HomeView onGoToConversation={(id) => { handleSelect(id); setTab("conversations"); }} />
+        </div>
+      ) : tab === "tienda" ? (
+        <div style={{ flex: 1, overflow: "hidden" }}>
+          <TiendaView />
         </div>
       ) : tab === "chat" ? (
         <div style={{ flex: 1, overflow: "hidden" }}>
