@@ -20,6 +20,8 @@ interface Conversation {
   mode: "AI" | "HUMAN";
   last_message_at: number | null;
   unread_count: number;
+  last_message: string | null;
+  last_message_role: string | null;
 }
 
 interface ConnectionState {

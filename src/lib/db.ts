@@ -195,10 +195,17 @@ export function getOrCreateConversation(phone: string, name?: string | null): Co
   return result;
 }
 
-export function listConversations(): Conversation[] {
-  return db
-    .prepare("SELECT * FROM conversations ORDER BY last_message_at DESC NULLS LAST, created_at DESC")
-    .all() as Conversation[];
+export function listConversations(): (Conversation & { last_message: string | null; last_message_role: string | null })[] {
+  return db.prepare(`
+    SELECT c.*,
+      m.content  AS last_message,
+      m.role     AS last_message_role
+    FROM conversations c
+    LEFT JOIN messages m ON m.id = (
+      SELECT id FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1
+    )
+    ORDER BY c.last_message_at DESC NULLS LAST, c.created_at DESC
+  `).all() as (Conversation & { last_message: string | null; last_message_role: string | null })[];
 }
 
 export function setMode(conversationId: number, mode: "AI" | "HUMAN"): void {
