@@ -26,6 +26,7 @@ interface BotHandle {
 let handle: BotHandle | null = null;
 let isStarting = false;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let qrSock: WASocket | null = null;
 
 function clearReconnectTimer() {
   if (reconnectTimer) {
@@ -106,24 +107,25 @@ export async function start(): Promise<void> {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
+      qrSock = sock;
+      qrcodeTerminal.generate(qr, { small: true });
+      try {
+        const qrDataUrl = await qrcode.toDataURL(qr);
+        setConnectionState({ status: "qr", qr_string: qrDataUrl, phone: null });
+      } catch {
+        setConnectionState({ status: "qr", qr_string: qr, phone: null });
+      }
+
+      // Auto-request pairing code if WA_PHONE_NUMBER is set
       const waPhone = process.env.WA_PHONE_NUMBER?.replace(/[^0-9]/g, "");
       if (waPhone) {
         try {
           const code = await sock.requestPairingCode(waPhone);
           console.log(`[bot] Pairing code: ${code}`);
           setConnectionState({ status: "pairing", qr_string: code, phone: null });
+          qrSock = null;
         } catch (err) {
           console.error("[bot] Error solicitando pairing code:", err);
-          const qrDataUrl = await qrcode.toDataURL(qr).catch(() => qr);
-          setConnectionState({ status: "qr", qr_string: qrDataUrl, phone: null });
-        }
-      } else {
-        qrcodeTerminal.generate(qr, { small: true });
-        try {
-          const qrDataUrl = await qrcode.toDataURL(qr);
-          setConnectionState({ status: "qr", qr_string: qrDataUrl, phone: null });
-        } catch {
-          setConnectionState({ status: "qr", qr_string: qr, phone: null });
         }
       }
     }
@@ -239,6 +241,15 @@ export async function fetchProfilePicture(phone: string): Promise<string | null>
   } catch {
     return null;
   }
+}
+
+export async function requestPairing(phone: string): Promise<string> {
+  if (!qrSock) throw new Error("No hay sesión QR activa. Reinicia el bot.");
+  const code = await qrSock.requestPairingCode(phone);
+  console.log(`[bot] Pairing code solicitado para ${phone}: ${code}`);
+  setConnectionState({ status: "pairing", qr_string: code, phone: null });
+  qrSock = null;
+  return code;
 }
 
 export async function shutdown(): Promise<void> {
