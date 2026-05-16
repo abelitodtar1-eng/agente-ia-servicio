@@ -1,10 +1,11 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { MessageBubble } from "./MessageBubble";
 import { ModeToggle } from "./ModeToggle";
 
 const BG = "#0a0c10"; const CARD = "#1a1d27"; const BORD = "#2a2d3e"; const PRP = "#6c63ff";
 const RED = "#ff6b6b"; const TEXT = "#e2e8f0"; const MUTED = "#8892a4"; const TEAL = "#00d4aa";
+const YELL = "#ffd166";
 
 interface Message {
   id: number;
@@ -84,6 +85,28 @@ function PayModal({ conversationId, onClose, onCreated }: { conversationId: numb
   );
 }
 
+interface Note {
+  id: number;
+  username_snapshot: string;
+  content: string;
+  created_at: number;
+}
+
+interface QuickReply {
+  id: number;
+  title: string;
+  content: string;
+  category: string;
+}
+
+function relTime(ts: number): string {
+  const d = Math.floor(Date.now() / 1000) - ts;
+  if (d < 60) return "ahora";
+  if (d < 3600) return `${Math.floor(d / 60)}m`;
+  if (d < 86400) return `${Math.floor(d / 3600)}h`;
+  return new Date(ts * 1000).toLocaleDateString("es-ES", { day: "numeric", month: "short" });
+}
+
 export function ConversationPanel({ conversation, onModeChange, onDelete }: ConversationPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -93,14 +116,70 @@ export function ConversationPanel({ conversation, onModeChange, onDelete }: Conv
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  // Notes
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [noteInput, setNoteInput] = useState("");
+
+  // Quick replies
+  const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
+  const [qrSearch, setQrSearch] = useState("");
+  const [showQr, setShowQr] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     loadMessages();
     loadPayments();
+    loadNotes();
+    if (quickReplies.length === 0) loadQuickReplies();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversation.id]);
 
   async function loadPayments() {
     const res = await fetch(`/api/payments/${conversation.id}`);
     if (res.ok) setPayments(await res.json());
+  }
+
+  async function loadNotes() {
+    const res = await fetch(`/api/conversations/${conversation.id}/notes`);
+    if (res.ok) setNotes(await res.json());
+  }
+
+  async function loadQuickReplies() {
+    const res = await fetch("/api/quick-replies");
+    if (res.ok) setQuickReplies(await res.json());
+  }
+
+  async function addNote() {
+    if (!noteInput.trim()) return;
+    const res = await fetch(`/api/conversations/${conversation.id}/notes`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: noteInput.trim() }),
+    });
+    if (res.ok) { setNoteInput(""); await loadNotes(); }
+  }
+
+  async function deleteNoteById(noteId: number) {
+    await fetch(`/api/conversations/${conversation.id}/notes`, {
+      method: "DELETE", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ noteId }),
+    });
+    setNotes(prev => prev.filter(n => n.id !== noteId));
+  }
+
+  const filteredQr = useCallback(() => {
+    if (!qrSearch) return quickReplies;
+    const q = qrSearch.toLowerCase();
+    return quickReplies.filter(r => r.title.toLowerCase().includes(q) || r.content.toLowerCase().includes(q));
+  }, [quickReplies, qrSearch]);
+
+  function applyQuickReply(qr: QuickReply) {
+    const name = conversation.name ?? conversation.phone;
+    const text = qr.content.replace(/\{nombre\}/g, name);
+    setInput(text);
+    setShowQr(false);
+    setQrSearch("");
+    setTimeout(() => inputRef.current?.focus(), 50);
   }
 
   useEffect(() => {
@@ -186,6 +265,41 @@ export function ConversationPanel({ conversation, onModeChange, onDelete }: Conv
         </div>
       )}
 
+      {/* Notes panel */}
+      <div style={{ borderBottom: `1px solid ${BORD}`, background: "rgba(255,209,102,.04)", flexShrink: 0 }}>
+        <button
+          onClick={() => setNotesOpen(o => !o)}
+          style={{ width: "100%", textAlign: "left", padding: "6px 16px", fontSize: 11, fontWeight: 600, color: YELL, background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+        >
+          📝 Notas internas {notes.length > 0 && <span style={{ background: YELL, color: "#0a0c10", borderRadius: 10, padding: "1px 7px", fontSize: 10, fontWeight: 700 }}>{notes.length}</span>}
+          <span style={{ marginLeft: "auto", color: MUTED, fontWeight: 400 }}>{notesOpen ? "▲" : "▼"}</span>
+        </button>
+        {notesOpen && (
+          <div style={{ padding: "0 16px 10px" }}>
+            {notes.map(n => (
+              <div key={n.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6, background: "rgba(255,209,102,.08)", border: `1px dashed rgba(255,209,102,.3)`, borderRadius: 6, padding: "6px 10px" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: 10, color: YELL, fontWeight: 600 }}>{n.username_snapshot}</span>
+                  <span style={{ fontSize: 10, color: MUTED, marginLeft: 8 }}>{relTime(n.created_at)}</span>
+                  <p style={{ fontSize: 12, color: TEXT, marginTop: 3, wordBreak: "break-word" }}>{n.content}</p>
+                </div>
+                <button onClick={() => deleteNoteById(n.id)} style={{ fontSize: 14, color: MUTED, background: "transparent", cursor: "pointer", flexShrink: 0, lineHeight: 1 }}>×</button>
+              </div>
+            ))}
+            <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+              <input
+                value={noteInput}
+                onChange={e => setNoteInput(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && addNote()}
+                placeholder="Añadir nota interna..."
+                style={{ flex: 1, fontSize: 12, background: BG, border: `1px solid rgba(255,209,102,.3)`, borderRadius: 6, padding: "6px 10px", color: TEXT, outline: "none" }}
+              />
+              <button onClick={addNote} disabled={!noteInput.trim()} style={{ fontSize: 11, fontWeight: 600, padding: "6px 12px", background: YELL, color: "#0a0c10", borderRadius: 6, cursor: "pointer", opacity: noteInput.trim() ? 1 : .5 }}>+</button>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Messages */}
       <div style={{ flex: 1, overflowY: "auto", padding: "16px", background: BG }}>
         {messages.map((m) => (
@@ -195,35 +309,82 @@ export function ConversationPanel({ conversation, onModeChange, onDelete }: Conv
       </div>
 
       {/* Input */}
-      <div style={{ padding: "12px 16px", borderTop: `1px solid ${BORD}`, background: CARD, flexShrink: 0 }}>
+      <div style={{ padding: "12px 16px", borderTop: `1px solid ${BORD}`, background: CARD, flexShrink: 0, position: "relative" }}>
         {mode === "AI" ? (
           <p style={{ fontSize: 11, color: MUTED, textAlign: "center" }}>El bot responde automáticamente</p>
         ) : (
-          <div style={{ display: "flex", gap: 8 }}>
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
-              placeholder="Escribe un mensaje..."
-              style={{
-                flex: 1, fontSize: 13, background: BG, border: `1px solid ${BORD}`,
-                borderRadius: 8, padding: "9px 12px", color: TEXT, outline: "none",
-              }}
-              onFocus={(e) => { e.target.style.borderColor = PRP; }}
-              onBlur={(e) => { e.target.style.borderColor = BORD; }}
-            />
-            <button
-              onClick={sendMessage}
-              disabled={!input.trim() || sending}
-              style={{
-                padding: "9px 18px", fontSize: 13, fontWeight: 600, borderRadius: 8, border: "none",
-                background: PRP, color: "#fff", cursor: sending ? "not-allowed" : "pointer",
-                opacity: (!input.trim() || sending) ? .5 : 1, transition: "opacity .15s",
-              }}
-            >
-              Enviar
-            </button>
-          </div>
+          <>
+            {/* Quick replies overlay */}
+            {showQr && (
+              <div style={{ position: "absolute", bottom: "100%", left: 16, right: 16, background: CARD, border: `1px solid ${BORD}`, borderRadius: 10, overflow: "hidden", boxShadow: "0 -4px 20px rgba(0,0,0,.4)", zIndex: 100, maxHeight: 280, display: "flex", flexDirection: "column" }}>
+                <div style={{ padding: "8px 12px", borderBottom: `1px solid ${BORD}`, display: "flex", alignItems: "center", gap: 8 }}>
+                  <input
+                    autoFocus
+                    value={qrSearch}
+                    onChange={e => setQrSearch(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Escape") { setShowQr(false); setQrSearch(""); } }}
+                    placeholder="Buscar plantilla..."
+                    style={{ flex: 1, fontSize: 12, background: BG, border: "none", color: TEXT, outline: "none" }}
+                  />
+                  <button onClick={() => { setShowQr(false); setQrSearch(""); }} style={{ fontSize: 16, color: MUTED, background: "transparent", cursor: "pointer" }}>×</button>
+                </div>
+                <div style={{ overflowY: "auto", flex: 1 }}>
+                  {filteredQr().length === 0 && <p style={{ fontSize: 12, color: MUTED, padding: "12px 16px" }}>Sin resultados</p>}
+                  {filteredQr().map(qr => (
+                    <button
+                      key={qr.id}
+                      onClick={() => applyQuickReply(qr)}
+                      style={{ width: "100%", textAlign: "left", padding: "9px 14px", background: "transparent", borderBottom: `1px solid ${BORD}`, cursor: "pointer" }}
+                      onMouseEnter={e => { e.currentTarget.style.background = "rgba(108,99,255,.1)"; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: PRP }}>{qr.title}</span>
+                        <span style={{ fontSize: 10, color: MUTED, background: "rgba(255,255,255,.05)", padding: "1px 6px", borderRadius: 4 }}>{qr.category}</span>
+                      </div>
+                      <p style={{ fontSize: 11, color: MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{qr.content}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => setShowQr(o => !o)}
+                title="Respuestas rápidas (/)"
+                style={{ fontSize: 13, fontWeight: 700, padding: "9px 12px", background: showQr ? "rgba(108,99,255,.2)" : "rgba(255,255,255,.05)", border: `1px solid ${showQr ? PRP : BORD}`, borderRadius: 8, color: showQr ? PRP : MUTED, cursor: "pointer", flexShrink: 0 }}
+              >
+                /
+              </button>
+              <input
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) sendMessage();
+                  if (e.key === "/" && !input) { e.preventDefault(); setShowQr(true); }
+                }}
+                placeholder="Escribe un mensaje... (/ para plantillas)"
+                style={{
+                  flex: 1, fontSize: 13, background: BG, border: `1px solid ${BORD}`,
+                  borderRadius: 8, padding: "9px 12px", color: TEXT, outline: "none",
+                }}
+                onFocus={(e) => { e.target.style.borderColor = PRP; }}
+                onBlur={(e) => { e.target.style.borderColor = BORD; }}
+              />
+              <button
+                onClick={sendMessage}
+                disabled={!input.trim() || sending}
+                style={{
+                  padding: "9px 18px", fontSize: 13, fontWeight: 600, borderRadius: 8, border: "none",
+                  background: PRP, color: "#fff", cursor: sending ? "not-allowed" : "pointer",
+                  opacity: (!input.trim() || sending) ? .5 : 1, transition: "opacity .15s",
+                }}
+              >
+                Enviar
+              </button>
+            </div>
+          </>
         )}
       </div>
     </div>

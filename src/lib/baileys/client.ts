@@ -12,7 +12,7 @@ import qrcode from "qrcode";
 import qrcodeTerminal from "qrcode-terminal";
 import path from "node:path";
 import fs from "node:fs";
-import { setConnectionState, getPendingOutbox, markOutboxSent } from "../db";
+import { setConnectionState, getPendingOutbox, markOutboxSent, resolveContactPhone } from "../db";
 import { handleIncomingMessage } from "./handler";
 
 const AUTH_DIR = path.resolve(process.cwd(), "auth");
@@ -104,12 +104,25 @@ export async function start(): Promise<void> {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
-      qrcodeTerminal.generate(qr, { small: true });
-      try {
-        const qrDataUrl = await qrcode.toDataURL(qr);
-        setConnectionState({ status: "qr", qr_string: qrDataUrl, phone: null });
-      } catch {
-        setConnectionState({ status: "qr", qr_string: qr, phone: null });
+      const waPhone = process.env.WA_PHONE_NUMBER?.replace(/[^0-9]/g, "");
+      if (waPhone) {
+        try {
+          const code = await sock.requestPairingCode(waPhone);
+          console.log(`[bot] Pairing code: ${code}`);
+          setConnectionState({ status: "pairing", qr_string: code, phone: null });
+        } catch (err) {
+          console.error("[bot] Error solicitando pairing code:", err);
+          const qrDataUrl = await qrcode.toDataURL(qr).catch(() => qr);
+          setConnectionState({ status: "qr", qr_string: qrDataUrl, phone: null });
+        }
+      } else {
+        qrcodeTerminal.generate(qr, { small: true });
+        try {
+          const qrDataUrl = await qrcode.toDataURL(qr);
+          setConnectionState({ status: "qr", qr_string: qrDataUrl, phone: null });
+        } catch {
+          setConnectionState({ status: "qr", qr_string: qr, phone: null });
+        }
       }
     }
 
@@ -173,6 +186,57 @@ export async function start(): Promise<void> {
       await handleIncomingMessage(sock, msg);
     }
   });
+
+  // Resolve LID → real phone when WA sends contact roster
+  sock.ev.on("contacts.upsert", (contacts) => {
+    for (const c of contacts) {
+      try {
+        const id = c.id ?? "";
+        const cAny = c as unknown as Record<string, unknown>;
+        const lid = cAny.lid as string | undefined;
+
+        // Case 1: phoneNumber field directly on a LID contact
+        const phoneNumber = cAny.phoneNumber as string | undefined;
+        if (id.endsWith("@lid") && phoneNumber) {
+          const lidNum = id.replace(/@lid$/, "");
+          const real = phoneNumber.replace(/^\+/, "");
+          console.log(`[contacts] LID ${lidNum} → +${real} (phoneNumber field)`);
+          resolveContactPhone(lidNum, real);
+          continue;
+        }
+
+        // Case 2: id is phone JID, lid field is the LID
+        if (id.endsWith("@s.whatsapp.net") && lid?.endsWith("@lid")) {
+          const real = id.replace(/@s\.whatsapp\.net$/, "");
+          const lidNum = lid.replace(/@lid$/, "");
+          console.log(`[contacts] LID ${lidNum} → +${real} (lid field)`);
+          resolveContactPhone(lidNum, real);
+          continue;
+        }
+
+        // Case 3: id is LID, lid field is the phone JID
+        if (id.endsWith("@lid") && lid?.endsWith("@s.whatsapp.net")) {
+          const lidNum = id.replace(/@lid$/, "");
+          const real = lid.replace(/@s\.whatsapp\.net$/, "");
+          console.log(`[contacts] LID ${lidNum} → +${real} (reverse lid field)`);
+          resolveContactPhone(lidNum, real);
+        }
+      } catch (e) {
+        console.error("[contacts] upsert error:", e);
+      }
+    }
+  });
+}
+
+export async function fetchProfilePicture(phone: string): Promise<string | null> {
+  if (!handle) return null;
+  try {
+    const jid = phoneToJid(phone);
+    const url = await handle.sock.profilePictureUrl(jid, "image");
+    return url ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function shutdown(): Promise<void> {

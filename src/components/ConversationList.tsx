@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useCallback } from "react";
+
 const CARD = "#1a1d27"; const BORD = "#2a2d3e"; const PRP = "#6c63ff";
 const TEAL = "#00d4aa"; const RED = "#ff6b6b"; const TEXT = "#e2e8f0"; const MUTED = "#8892a4";
 
@@ -46,7 +48,7 @@ function avatarColor(seed: string): string {
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
 }
 
-function Avatar({ name, phone }: { name: string | null; phone: string }) {
+function InitialsAvatar({ name, phone }: { name: string | null; phone: string }) {
   const color = avatarColor(phone);
   const src = name?.trim() || phone;
   const initials = src
@@ -66,6 +68,30 @@ function Avatar({ name, phone }: { name: string | null; phone: string }) {
   );
 }
 
+function Avatar({ name, phone, imgErrors, onImgError }: {
+  name: string | null;
+  phone: string;
+  imgErrors: Set<string>;
+  onImgError: (phone: string) => void;
+}) {
+  if (imgErrors.has(phone)) {
+    return <InitialsAvatar name={name} phone={phone} />;
+  }
+  return (
+    <div style={{ width: 46, height: 46, borderRadius: "50%", flexShrink: 0, overflow: "hidden", position: "relative" }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={`/api/contacts/${encodeURIComponent(phone)}/avatar`}
+        alt=""
+        width={46}
+        height={46}
+        style={{ width: 46, height: 46, objectFit: "cover", borderRadius: "50%" }}
+        onError={() => onImgError(phone)}
+      />
+    </div>
+  );
+}
+
 function MessagePreview({ role, content }: { role: string | null; content: string | null }) {
   if (!content) return <span style={{ color: MUTED, fontStyle: "italic", fontSize: 12 }}>Sin mensajes</span>;
   const prefix = role === "assistant" ? "🤖 " : role === "human" ? "👤 " : "";
@@ -78,6 +104,12 @@ function MessagePreview({ role, content }: { role: string | null; content: strin
 }
 
 export function ConversationList({ conversations, selectedId, onSelect }: ConversationListProps) {
+  const [imgErrors, setImgErrors] = useState<Set<string>>(new Set());
+
+  const handleImgError = useCallback((phone: string) => {
+    setImgErrors(prev => new Set(prev).add(phone));
+  }, []);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: CARD }}>
 
@@ -115,7 +147,7 @@ export function ConversationList({ conversations, selectedId, onSelect }: Conver
             >
               {/* Avatar + mode dot */}
               <div style={{ position: "relative", flexShrink: 0 }}>
-                <Avatar name={displayName} phone={c.phone} />
+                <Avatar name={displayName} phone={c.phone} imgErrors={imgErrors} onImgError={handleImgError} />
                 <span style={{
                   position: "absolute", bottom: 1, right: 1,
                   width: 12, height: 12, borderRadius: "50%",

@@ -7,7 +7,7 @@ export function GET() {
   const state = getConnectionState();
   const shouldShowQr =
     !!state.qr_string &&
-    (state.status === "qr" || state.status === "connecting");
+    (state.status === "qr" || state.status === "connecting" || state.status === "pairing");
 
   return NextResponse.json({
     status: state.status,

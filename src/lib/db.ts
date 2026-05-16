@@ -54,7 +54,7 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS connection_state (
     id INTEGER PRIMARY KEY CHECK (id = 1),
-    status TEXT CHECK(status IN ('disconnected','qr','connecting','connected')) NOT NULL DEFAULT 'disconnected',
+    status TEXT CHECK(status IN ('disconnected','qr','connecting','connected','pairing')) NOT NULL DEFAULT 'disconnected',
     qr_string TEXT,
     phone TEXT,
     updated_at INTEGER NOT NULL DEFAULT (unixepoch())
@@ -100,6 +100,26 @@ db.prepare(`CREATE TABLE IF NOT EXISTS sessions (
   expires_at INTEGER NOT NULL,
   created_at INTEGER NOT NULL DEFAULT (unixepoch())
 )`).run();
+
+// Migration: add 'pairing' to connection_state CHECK constraint (SQLite requires table recreation)
+{
+  const row = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='connection_state'").get() as { sql: string } | undefined;
+  if (row && !row.sql.includes("'pairing'")) {
+    db.exec(`
+      CREATE TABLE connection_state_new (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        status TEXT CHECK(status IN ('disconnected','qr','connecting','connected','pairing')) NOT NULL DEFAULT 'disconnected',
+        qr_string TEXT,
+        phone TEXT,
+        updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+      );
+      INSERT OR IGNORE INTO connection_state_new SELECT id, 'disconnected', NULL, phone, updated_at FROM connection_state;
+      DROP TABLE connection_state;
+      ALTER TABLE connection_state_new RENAME TO connection_state;
+    `);
+    console.log("[db] Migration: connection_state recreada con soporte pairing");
+  }
+}
 
 db.prepare(`CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at)`).run();
 
@@ -170,13 +190,18 @@ export interface Appointment {
 }
 
 export interface ConnectionState {
-  status: "disconnected" | "qr" | "connecting" | "connected";
+  status: "disconnected" | "qr" | "connecting" | "connected" | "pairing";
   qr_string: string | null;
   phone: string | null;
   updated_at: number;
 }
 
 // --- Conversations ---
+
+function phoneAlias(phone: string): string | null {
+  // LIDs are 14+ digits — not real phone numbers
+  return phone.length <= 13 ? `+${phone}` : null;
+}
 
 export function getOrCreateConversation(phone: string, name?: string | null): Conversation {
   const existing = db
@@ -189,10 +214,27 @@ export function getOrCreateConversation(phone: string, name?: string | null): Co
     }
     return existing;
   }
+  const alias = phoneAlias(phone);
   const result = db
-    .prepare("INSERT INTO conversations (phone, name) VALUES (?, ?) RETURNING *")
-    .get(phone, name ?? null) as Conversation;
+    .prepare("INSERT INTO conversations (phone, name, phone_alias) VALUES (?, ?, ?) RETURNING *")
+    .get(phone, name ?? null, alias) as Conversation;
   return result;
+}
+
+// Called when Baileys resolves a LID → real phone mapping
+export function resolveContactPhone(lidOrPhone: string, realPhone: string): void {
+  db.prepare("UPDATE conversations SET phone_alias = ? WHERE phone = ?")
+    .run(`+${realPhone}`, lidOrPhone);
+}
+
+export function backfillPhoneAliases(): number {
+  const rows = db
+    .prepare("SELECT id, phone FROM conversations WHERE phone_alias IS NULL AND length(phone) <= 13")
+    .all() as { id: number; phone: string }[];
+  for (const r of rows) {
+    db.prepare("UPDATE conversations SET phone_alias = ? WHERE id = ?").run(`+${r.phone}`, r.id);
+  }
+  return rows.length;
 }
 
 export function listConversations(): (Conversation & { last_message: string | null; last_message_role: string | null })[] {
@@ -539,3 +581,120 @@ export function upsertProductByName(p: Omit<Product, "id" | "activo" | "imagen" 
 
 // Migration: imagen column
 try { db.prepare("ALTER TABLE products ADD COLUMN imagen TEXT").run(); } catch {}
+
+// ─── Conversation notes ───────────────────────────────────────────────────────
+db.prepare(`CREATE TABLE IF NOT EXISTS conversation_notes (
+  id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+  conversation_id    INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  user_id            INTEGER NOT NULL REFERENCES users(id),
+  username_snapshot  TEXT NOT NULL,
+  content            TEXT NOT NULL,
+  created_at         INTEGER NOT NULL DEFAULT (unixepoch())
+)`).run();
+
+export interface ConversationNote {
+  id: number;
+  conversation_id: number;
+  user_id: number;
+  username_snapshot: string;
+  content: string;
+  created_at: number;
+}
+
+export function getNotesByConversation(conversationId: number): ConversationNote[] {
+  return db.prepare("SELECT * FROM conversation_notes WHERE conversation_id = ? ORDER BY created_at ASC")
+    .all(conversationId) as ConversationNote[];
+}
+
+export function insertNote(conversationId: number, userId: number, username: string, content: string): ConversationNote {
+  return db.prepare(
+    "INSERT INTO conversation_notes (conversation_id, user_id, username_snapshot, content) VALUES (?,?,?,?) RETURNING *"
+  ).get(conversationId, userId, username, content) as ConversationNote;
+}
+
+export function deleteNote(noteId: number): void {
+  db.prepare("DELETE FROM conversation_notes WHERE id = ?").run(noteId);
+}
+
+// ─── Quick replies ────────────────────────────────────────────────────────────
+db.prepare(`CREATE TABLE IF NOT EXISTS quick_replies (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  title      TEXT NOT NULL,
+  content    TEXT NOT NULL,
+  category   TEXT NOT NULL DEFAULT 'General',
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+)`).run();
+
+// Seed default quick replies
+const _qrCount = (db.prepare("SELECT COUNT(*) as c FROM quick_replies").get() as { c: number }).c;
+if (_qrCount === 0) {
+  const seeds = [
+    { title: "Saludo inicial", content: "¡Hola {nombre}! ¿En qué le puedo ayudar hoy?", category: "General" },
+    { title: "Cobro Enzona", content: "Para completar su pedido puede pagar por Enzona en el siguiente enlace:", category: "Cobros" },
+    { title: "Precio arroz", content: "El arroz está a {precio} CUP por libra. ¿Cuántas libras necesita?", category: "Precios" },
+    { title: "Pedido en camino", content: "Su pedido está siendo preparado y llegará en breve. Cualquier duda estamos aquí.", category: "Pedidos" },
+    { title: "Fuera de horario", content: "Estamos fuera de horario en este momento. Le atenderemos mañana a partir de las 8:00 AM.", category: "General" },
+  ];
+  const stmt = db.prepare("INSERT INTO quick_replies (title, content, category, sort_order) VALUES (?,?,?,?)");
+  seeds.forEach((s, i) => stmt.run(s.title, s.content, s.category, i));
+}
+
+export interface QuickReply {
+  id: number;
+  title: string;
+  content: string;
+  category: string;
+  sort_order: number;
+  created_at: number;
+  updated_at: number;
+}
+
+export function listQuickReplies(): QuickReply[] {
+  return db.prepare("SELECT * FROM quick_replies ORDER BY sort_order, title").all() as QuickReply[];
+}
+
+export function createQuickReply(r: Pick<QuickReply, "title" | "content" | "category">): QuickReply {
+  return db.prepare(
+    "INSERT INTO quick_replies (title, content, category) VALUES (?,?,?) RETURNING *"
+  ).get(r.title, r.content, r.category) as QuickReply;
+}
+
+export function updateQuickReply(id: number, r: Partial<Pick<QuickReply, "title" | "content" | "category" | "sort_order">>): void {
+  const sets = Object.keys(r).map(k => `${k} = ?`).join(", ");
+  db.prepare(`UPDATE quick_replies SET ${sets}, updated_at = unixepoch() WHERE id = ?`).run(...Object.values(r), id);
+}
+
+export function deleteQuickReply(id: number): void {
+  db.prepare("DELETE FROM quick_replies WHERE id = ?").run(id);
+}
+
+// ─── Payment reminders ────────────────────────────────────────────────────────
+try { db.prepare("ALTER TABLE payments ADD COLUMN reminded_at INTEGER").run(); } catch {}
+
+export interface PendingReminder {
+  id: number;
+  conversation_id: number;
+  phone: string;
+  amount: number;
+  description: string;
+  link_confirm: string | null;
+  created_at: number;
+}
+
+export function getPendingPaymentsToRemind(): PendingReminder[] {
+  const cutoff = Math.floor(Date.now() / 1000) - 86400; // 24h ago
+  return db.prepare(`
+    SELECT p.id, p.conversation_id, c.phone, p.amount, p.description, p.link_confirm, p.created_at
+    FROM payments p
+    JOIN conversations c ON c.id = p.conversation_id
+    WHERE p.status = 'pending'
+      AND p.created_at < ?
+      AND p.reminded_at IS NULL
+  `).all(cutoff) as PendingReminder[];
+}
+
+export function markPaymentReminded(id: number): void {
+  db.prepare("UPDATE payments SET reminded_at = unixepoch() WHERE id = ?").run(id);
+}
