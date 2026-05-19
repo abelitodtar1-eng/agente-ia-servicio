@@ -13,6 +13,7 @@ import { HomeView } from "./HomeView";
 import { TiendaView } from "./TiendaView";
 import { PedidosView } from "./PedidosView";
 import { CatalogoView } from "./CatalogoView";
+import { ProductosView } from "./ProductosView";
 
 interface Conversation {
   id: number;
@@ -26,7 +27,7 @@ interface Conversation {
   last_message_role: string | null;
 }
 
-type Tab = "home" | "conversations" | "contacts" | "webhook" | "dashboard" | "chat" | "tienda" | "pedidos" | "catalogo" | "conectar";
+type Tab = "home" | "conversations" | "contacts" | "webhook" | "dashboard" | "chat" | "tienda" | "pedidos" | "catalogo" | "productos" | "conectar";
 
 export function ConnectionGate() {
   const router = useRouter();
@@ -118,6 +119,7 @@ export function ConnectionGate() {
     { key: "tienda", label: "Tienda" },
     { key: "pedidos", label: "Pedidos" },
     { key: "catalogo", label: "Catálogo" },
+    { key: "productos", label: "Productos" },
     { key: "conectar", label: "Conectar", dot: connected ? "#00d4aa" : "#ff6b6b" },
   ];
 
@@ -179,6 +181,10 @@ export function ConnectionGate() {
       {tab === "catalogo" ? (
         <div style={{ flex: 1, overflow: "hidden" }}>
           <CatalogoView />
+        </div>
+      ) : tab === "productos" ? (
+        <div style={{ flex: 1, overflow: "hidden" }}>
+          <ProductosView />
         </div>
       ) : tab === "pedidos" ? (
         <div style={{ flex: 1, overflow: "hidden" }}>
