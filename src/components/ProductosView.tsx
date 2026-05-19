@@ -223,6 +223,11 @@ export function ProductosView() {
 
   const [toast, setToast] = useState("");
 
+  // Admin phone config
+  const [adminPhone, setAdminPhoneState] = useState("");
+  const [adminPhoneSaving, setAdminPhoneSaving] = useState(false);
+  const [adminFocus, setAdminFocus] = useState(false);
+
   async function load() {
     setLoading(true);
     const res = await fetch("/api/admin/products");
@@ -230,7 +235,23 @@ export function ProductosView() {
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    fetch("/api/settings/admin-phone").then(r => r.ok ? r.json() : null).then(d => {
+      if (d?.phone) setAdminPhoneState(d.phone);
+    });
+  }, []);
+
+  async function saveAdminPhone() {
+    setAdminPhoneSaving(true);
+    await fetch("/api/settings/admin-phone", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone: adminPhone }),
+    });
+    setAdminPhoneSaving(false);
+    flash("Teléfono admin guardado");
+  }
 
   function flash(msg: string) { setToast(msg); setTimeout(() => setToast(""), 3000); }
 
@@ -329,6 +350,27 @@ export function ProductosView() {
             ✓ {toast}
           </div>
         )}
+
+        {/* Admin phone config */}
+        <div style={{ background: CARD, border: `1px solid ${BORD}`, borderRadius: 10, padding: "14px 18px", marginBottom: 20 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: MUTED, textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 10 }}>
+            📱 Teléfono admin — comandos WhatsApp
+          </p>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <input
+              value={adminPhone} onChange={e => setAdminPhoneState(e.target.value)}
+              placeholder="Ej: 5351234567 (solo números, sin +)"
+              style={{ ...inputStyle(adminFocus), maxWidth: 260, fontSize: 12 }}
+              onFocus={() => setAdminFocus(true)} onBlur={() => setAdminFocus(false)}
+            />
+            <ActionBtn onClick={saveAdminPhone} disabled={adminPhoneSaving} variant="outline">
+              {adminPhoneSaving ? "Guardando..." : "Guardar"}
+            </ActionBtn>
+          </div>
+          <p style={{ fontSize: 11, color: MUTED, marginTop: 8, lineHeight: 1.6 }}>
+            Desde ese número, envía por WhatsApp: <span style={{ color: TEAL, fontFamily: "monospace" }}>/inv ayuda</span> para ver todos los comandos disponibles.
+          </p>
+        </div>
 
         {/* Table */}
         <div style={{ background: CARD, border: `1px solid ${BORD}`, borderRadius: 12, overflow: "hidden" }}>

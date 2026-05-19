@@ -901,3 +901,20 @@ export function getAllTags(): { tag: string; count: number }[] {
 export function getConversationsByTag(tag: string): number[] {
   return (db.prepare("SELECT conversation_id FROM contact_tags WHERE tag = ?").all(tag) as { conversation_id: number }[]).map(r => r.conversation_id);
 }
+
+// ─── Admin phone ──────────────────────────────────────────────────────────────
+db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('admin_phone', '')").run();
+
+export function getAdminPhone(): string {
+  return getSetting("admin_phone");
+}
+export function setAdminPhone(phone: string): void {
+  setSetting("admin_phone", phone.trim().replace(/\D/g, ""));
+}
+
+export function findProductByName(nombre: string): Product | undefined {
+  return (
+    db.prepare("SELECT * FROM products WHERE lower(nombre) = lower(?)").get(nombre) ??
+    db.prepare("SELECT * FROM products WHERE lower(nombre) LIKE lower(?) LIMIT 1").get(`%${nombre}%`)
+  ) as Product | undefined;
+}

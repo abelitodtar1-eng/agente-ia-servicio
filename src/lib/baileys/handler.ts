@@ -13,9 +13,11 @@ import {
   getInventarioWebhookUrl,
   getContabilidadWebhookUrl,
   setMode,
+  getAdminPhone,
   type Conversation,
 } from "../db";
 import { triageMessage, type TriageDecision } from "../triage";
+import { handleProductCommand } from "../product-commands";
 
 function extractText(msg: proto.IWebMessageInfo): string | null {
   return (
@@ -115,6 +117,18 @@ export async function handleIncomingMessage(
   }
 
   insertMessage(conversation.id, "user", text);
+
+  // Admin inventory commands — intercept before triage
+  const adminPhone = getAdminPhone();
+  if (adminPhone && phone === adminPhone) {
+    const result = handleProductCommand(text);
+    if (result) {
+      insertMessage(conversation.id, "assistant", result.reply);
+      await sock.sendMessage(remoteJid, { text: result.reply });
+      console.log(`[handler] admin inv cmd ok=${result.ok}`);
+      return;
+    }
+  }
 
   const { mode } = conversation;
   if (mode !== "AI") return;
