@@ -564,6 +564,10 @@ export function listProducts(): Product[] {
   return db.prepare("SELECT * FROM products ORDER BY categoria, nombre").all() as Product[];
 }
 
+export function getProduct(id: number): Product | undefined {
+  return db.prepare("SELECT * FROM products WHERE id = ?").get(id) as Product | undefined;
+}
+
 export function listActiveProducts(): Product[] {
   return db.prepare("SELECT * FROM products WHERE activo = 1 AND stock > 0 ORDER BY categoria, nombre").all() as Product[];
 }

@@ -221,6 +221,8 @@ export function ProductosView() {
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const [sendingStatus, setSendingStatus] = useState<number | null>(null);
+
   const [toast, setToast] = useState("");
 
   // Admin phone config
@@ -300,6 +302,15 @@ export function ProductosView() {
     setDeleteTarget(null);
     load();
     flash("Producto eliminado");
+  }
+
+  async function handleSendStatus(p: Product) {
+    setSendingStatus(p.id);
+    const res = await fetch(`/api/admin/products/${p.id}/status`, { method: "POST" });
+    const d = await res.json() as { ok?: boolean; error?: string };
+    setSendingStatus(null);
+    if (d.ok) flash(`Estado publicado: ${p.nombre}`);
+    else flash(`Error: ${d.error ?? "sin respuesta"}`);
   }
 
   async function toggleActivo(p: Product) {
@@ -416,7 +427,15 @@ export function ProductosView() {
                         </button>
                       </td>
                       <td style={{ padding: "10px 14px" }}>
-                        <div style={{ display: "flex", gap: 6 }}>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          <button
+                            onClick={() => handleSendStatus(p)}
+                            disabled={sendingStatus === p.id || !p.imagen}
+                            title={!p.imagen ? "Agrega imagen al producto primero" : "Publicar como estado WA"}
+                            style={{ background: "transparent", border: `1px solid ${p.imagen ? `${TEAL}44` : BORD}`, color: p.imagen ? TEAL : MUTED, fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: p.imagen ? "pointer" : "not-allowed", opacity: (!p.imagen || sendingStatus === p.id) ? .5 : 1 }}
+                          >
+                            {sendingStatus === p.id ? "..." : "📤 Estado"}
+                          </button>
                           <button
                             onClick={() => { setEditProduct(p); setEditErr(""); }}
                             style={{ background: "transparent", border: `1px solid ${BORD}`, color: MUTED, fontSize: 11, padding: "4px 12px", borderRadius: 6, cursor: "pointer" }}
