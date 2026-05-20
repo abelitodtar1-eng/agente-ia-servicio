@@ -233,6 +233,31 @@ export async function start(): Promise<void> {
     }
   });
 
+  // Full contact roster on initial sync — this is the key source for statusJidList
+  sock.ev.on("contacts.set", ({ contacts }) => {
+    for (const c of contacts) {
+      const jid = c.id ?? "";
+      if (jid.endsWith("@s.whatsapp.net")) waContactJids.add(jid);
+    }
+    console.log(`[contacts] set: ${waContactJids.size} contactos WA sincronizados`);
+  });
+
+  // Chat JIDs (conversations) — supplement the contacts set
+  sock.ev.on("chats.set", ({ chats }) => {
+    for (const chat of chats) {
+      const jid = chat.id ?? "";
+      if (jid.endsWith("@s.whatsapp.net")) waContactJids.add(jid);
+    }
+    console.log(`[contacts] chats.set: ${waContactJids.size} contactos WA totales`);
+  });
+
+  sock.ev.on("chats.upsert", (chats) => {
+    for (const chat of chats) {
+      const jid = chat.id ?? "";
+      if (jid.endsWith("@s.whatsapp.net")) waContactJids.add(jid);
+    }
+  });
+
   // Resolve LID → real phone when WA sends contact roster
   sock.ev.on("contacts.upsert", (contacts) => {
     for (const c of contacts) {
