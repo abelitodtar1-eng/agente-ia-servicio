@@ -26,6 +26,7 @@ interface BotHandle {
 let handle: BotHandle | null = null;
 let isStarting = false;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+const waContactJids = new Set<string>(); // todos los contactos WA conocidos
 
 function clearReconnectTimer() {
   if (reconnectTimer) {
@@ -40,6 +41,7 @@ function cleanupHandle() {
     try { handle.sock.end(undefined); } catch {}
     handle = null;
   }
+  waContactJids.clear();
 }
 
 function clearAuth() {
@@ -74,7 +76,10 @@ async function startOutboxPoller(sock: WASocket) {
     // estados WA
     const pendingStatus = getPendingStatus();
     if (pendingStatus.length > 0) {
-      const statusJidList = getAllContactJids();
+      // preferir contactos WA del socket; fallback a los de la DB
+      const statusJidList = waContactJids.size > 0
+        ? [...waContactJids]
+        : getAllContactJids();
       for (const item of pendingStatus) {
         try {
           const buffer = fs.readFileSync(item.image_path);
@@ -84,7 +89,7 @@ async function startOutboxPoller(sock: WASocket) {
             { statusJidList }
           );
           markStatusSent(item.id);
-          console.log(`[status] enviado (${statusJidList.length} contactos): "${item.caption.slice(0, 40)}"`);
+          console.log(`[status] enviado (${statusJidList.length} contactos WA): "${item.caption.slice(0, 40)}"`);
         } catch (err) {
           console.error(`[status] fallo:`, err instanceof Error ? err.message : err);
           if (err instanceof Error && err.message.includes("ENOENT")) markStatusSent(item.id);
@@ -231,6 +236,9 @@ export async function start(): Promise<void> {
   // Resolve LID → real phone when WA sends contact roster
   sock.ev.on("contacts.upsert", (contacts) => {
     for (const c of contacts) {
+      // acumular JIDs para statusJidList
+      const jid = c.id ?? "";
+      if (jid.endsWith("@s.whatsapp.net")) waContactJids.add(jid);
       try {
         const id = c.id ?? "";
         const cAny = c as unknown as Record<string, unknown>;
