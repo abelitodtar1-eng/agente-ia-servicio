@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contabilidad — DTAR Agente</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+:root{--bg:#0f1117;--card:#1a1d27;--border:#2a2d3e;--accent:#6c63ff;--accent2:#00d4aa;--accent3:#ff6b6b;--accent4:#ffd166;--text:#e2e8f0;--muted:#8892a4;--radius:12px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0a0c10;min-height:100vh;font-family:'Segoe UI',system-ui,sans-serif;}
+.db{background:var(--bg);color:var(--text);min-height:100vh;border-radius:var(--radius);overflow:hidden;max-width:1400px;margin:0 auto;}
+header{display:flex;align-items:center;justify-content:space-between;padding:18px 28px;border-bottom:1px solid var(--border);background:var(--card);}
+header h1{font-size:1.2rem;font-weight:700;color:var(--text);}
+header h1 span{color:var(--accent2);}
+.hbadge{background:var(--accent2);color:#fff;font-size:.7rem;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:.5px;}
+.hright{display:flex;align-items:center;gap:12px;}
+.back-btn{display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border);color:var(--muted);padding:8px 14px;border-radius:8px;font-size:.82rem;cursor:pointer;text-decoration:none;transition:all .2s;}
+.back-btn:hover{border-color:var(--accent);color:var(--accent);}
+.tabs{display:flex;gap:4px;padding:16px 28px 0;background:var(--card);border-bottom:1px solid var(--border);}
+.tab{padding:8px 20px;border-radius:8px 8px 0 0;cursor:pointer;font-size:.88rem;font-weight:600;color:var(--muted);background:transparent;border:none;border-bottom:2px solid transparent;transition:all .2s;}
+.tab.active{color:var(--accent2);border-bottom-color:var(--accent2);background:rgba(0,212,170,.08);}
+.tab:hover:not(.active){color:var(--text);}
+main{padding:22px 28px;}
+.view{display:none;}
+.view.active{display:block;}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:22px;}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;position:relative;overflow:hidden;}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--kpi-color,var(--accent));}
+.kpi-lbl{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;}
+.kpi-val{font-size:1.8rem;font-weight:700;color:var(--text);}
+.kpi-sub{font-size:.76rem;color:var(--muted);margin-top:4px;}
+.kpi-icon{position:absolute;right:14px;top:14px;font-size:1.5rem;opacity:.12;}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:22px;}
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;}
+.chart-card h3{font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;}
+.chart-wrap{position:relative;}
+.h200{height:200px;}
+.h260{height:260px;}
+.tbl-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin-bottom:22px;}
+.tbl-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
+.tbl-header h3{font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+.filters{display:flex;gap:8px;flex-wrap:wrap;}
+.filters select,.filters input{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text);font-size:.82rem;outline:none;}
+.filters select:focus,.filters input:focus{border-color:var(--accent);}
+.filters input{width:180px;}
+table{width:100%;border-collapse:collapse;font-size:.83rem;}
+th{text-align:left;padding:9px 12px;color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);white-space:nowrap;}
+td{padding:9px 12px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(255,255,255,.02);}
+.num{text-align:right;}
+.pill{display:inline-block;padding:2px 10px;border-radius:20px;font-size:.72rem;font-weight:700;}
+.p-activo{background:rgba(108,99,255,.15);color:var(--accent);}
+.p-pasivo{background:rgba(255,107,107,.15);color:var(--accent3);}
+.p-patrimonio{background:rgba(0,212,170,.15);color:var(--accent2);}
+.p-resultado-pos{background:rgba(0,212,170,.15);color:var(--accent2);}
+.p-resultado-neg{background:rgba(255,107,107,.15);color:var(--accent3);}
+.ac-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:.82rem;}
+.ac-row:last-child{border-bottom:none;}
+.ac-name{flex:1;color:var(--text);}
+.ac-cat{font-size:.72rem;color:var(--muted);min-width:120px;}
+.ac-cod{font-size:.72rem;color:var(--muted);min-width:50px;}
+.ac-val{font-size:.82rem;font-weight:600;min-width:100px;text-align:right;}
+.ac-group{margin-bottom:20px;}
+.ac-group-title{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--card);border-radius:8px;margin-bottom:10px;cursor:pointer;border:1px solid var(--border);transition:all .2s;}
+.ac-group-title:hover{border-color:var(--accent);}
+.ac-group-title h4{flex:1;font-size:.88rem;font-weight:600;}
+.ac-count{font-size:.72rem;color:var(--muted);background:var(--bg);padding:2px 8px;border-radius:10px;}
+.ac-toggle{font-size:.88rem;color:var(--muted);transition:transform .2s;}
+.ac-group.open .ac-toggle{transform:rotate(90deg);}
+.ac-items{padding-left:20px;margin-bottom:10px;}
+.alert-block{border-radius:10px;padding:14px 16px;margin-bottom:12px;}
+.al-g{background:rgba(0,212,170,.08);border:1px solid rgba(0,212,170,.2);}
+.al-title{font-size:.82rem;font-weight:700;margin-bottom:8px;color:var(--accent2);}
+.al-item{font-size:.82rem;color:var(--muted);display:flex;gap:6px;margin-bottom:4px;line-height:1.5;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:1000;}
+.modal-overlay.active{display:flex;}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:500px;width:90%;}
+.modal-title{font-size:1rem;font-weight:700;margin-bottom:20px;color:var(--text);}
+.modal-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+.modal-field{display:flex;flex-direction:column;gap:4px;}
+.modal-field label{font-size:.72rem;color:var(--muted);text-transform:uppercase;}
+.modal-field input,.modal-field select{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-size:.85rem;}
+.modal-field input:focus,.modal-field select:focus{outline:none;border-color:var(--accent2);}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;}
+.modal-btn{padding:10px 20px;border-radius:8px;border:none;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .2s;}
+.modal-btn.primary{background:var(--accent2);color:#fff;}
+.modal-btn.secondary{background:transparent;border:1px solid var(--border);color:var(--muted);}
+.actions{display:flex;gap:10px;margin-top:16px;}
+.btn-action{background:var(--accent2);color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:.82rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s;text-decoration:none;}
+.btn-action:hover{filter:brightness(1.1);}
+.btn-action.outline{background:transparent;border:1px solid var(--border);color:var(--muted);}
+.btn-action.outline:hover{border-color:var(--accent2);color:var(--accent2);}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--card);border:1px solid var(--accent2);border-radius:10px;padding:14px 20px;display:flex;align-items:center;gap:10px;animation:slideIn .3s;z-index:1001;}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0;}to{transform:translateX(0);opacity:1;}}
+.balance-box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:22px;}
+.balance-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);font-size:.88rem;}
+.balance-row:last-child{border-bottom:none;}
+.balance-row.total{font-weight:700;font-size:1rem;border-top:2px solid var(--border);margin-top:8px;padding-top:16px;}
+.balance-lbl{color:var(--muted);}
+.balance-val{font-weight:600;}
+.balance-val.pos{color:var(--accent2);}
+.balance-val.neg{color:var(--accent3);}
+@media(max-width:900px){.grid2{grid-template-columns:1fr;}.kpi-grid{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:600px){.kpi-grid{grid-template-columns:1fr;}.modal-row{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div class="db">
+<header>
+  <h1><span>Conta</span>Bot — DTAR Agente</h1>
+  <div class="hright">
+    <a href="/" class="back-btn">← Panel Principal</a>
+    <span class="hbadge" id="total-cuentas">0 CUENTAS</span>
+  </div>
+</header>
+<div class="tabs">
+  <button class="tab active" onclick="showTab('resumen',this)">Resumen</button>
+  <button class="tab" onclick="showTab('cuentas',this)">Plan de Cuentas</button>
+  <button class="tab" onclick="showTab('mayor',this)">Libro Mayor</button>
+  <button class="tab" onclick="showTab('asientos',this)">Asientos</button>
+  <button class="tab" onclick="showTab('estados',this)">Estados Financieros</button>
+  <a href="/" style="margin-left:auto;padding:8px 20px;background:var(--accent2);color:#fff;border-radius:8px 8px 0 0;text-decoration:none;font-weight:600;font-size:.88rem;">Panel</a>
+</div>
+<main>
+
+<!-- RESUMEN -->
+<div class="view active" id="view-resumen">
+  <div class="kpi-grid">
+    <div class="kpi" style="--kpi-color:#6c63ff"><div class="kpi-icon">📋</div><div class="kpi-lbl">Total Cuentas</div><div class="kpi-val" id="kpi-total">0</div><div class="kpi-sub">plan de cuentas</div></div>
+    <div class="kpi" style="--kpi-color:#00d4aa"><div class="kpi-icon">📈</div><div class="kpi-lbl">Activo</div><div class="kpi-val" style="color:var(--accent2)" id="kpi-activo">$0</div><div class="kpi-sub">total activo</div></div>
+    <div class="kpi" style="--kpi-color:#ff6b6b"><div class="kpi-icon">📉</div><div class="kpi-lbl">Pasivo</div><div class="kpi-val" style="color:var(--accent3)" id="kpi-pasivo">$0</div><div class="kpi-sub">total pasivo</div></div>
+    <div class="kpi" style="--kpi-color:#ffd166"><div class="kpi-icon">⚖️</div><div class="kpi-lbl">Patrimonio</div><div class="kpi-val" style="color:var(--accent4)" id="kpi-patrimonio">$0</div><div class="kpi-sub">patrimonio neto</div></div>
+  </div>
+  <div class="balance-box">
+    <h3 style="font-size:.88rem;color:var(--muted);margin-bottom:16px;text-transform:uppercase;letter-spacing:.5px;">Resumen Patrimonial</h3>
+    <div class="balance-row"><span class="balance-lbl">Activo</span><span class="balance-val pos" id="bal-activo">$0</span></div>
+    <div class="balance-row"><span class="balance-lbl">Pasivo</span><span class="balance-val neg" id="bal-pasivo">$0</span></div>
+    <div class="balance-row total"><span class="balance-lbl">Patrimonio Neto (Activo - Pasivo)</span><span class="balance-val" id="bal-patrimonio">$0</span></div>
+  </div>
+  <div class="grid2">
+    <div class="chart-card"><h3>Distribución del Activo</h3><div class="chart-wrap h260"><canvas id="chart-activo"></canvas></div></div>
+    <div class="chart-card"><h3>Distribución del Pasivo</h3><div class="chart-wrap h260"><canvas id="chart-pasivo"></canvas></div></div>
+  </div>
+  <div class="grid2">
+    <div class="chart-card"><h3>Composición del Patrimonio</h3><div class="chart-wrap h200"><canvas id="chart-patrimonio"></canvas></div></div>
+    <div class="chart-card"><h3>Resumen Resultados</h3><div class="chart-wrap h200"><canvas id="chart-resultados"></canvas></div></div>
+  </div>
+  <div class="alert-block al-g">
+    <div class="al-title">Estado del Sistema Contable</div>
+    <div class="al-item" id="status-cuentas">● Cargando plan de cuentas...</div>
+    <div class="al-item">● Los datos se guardan automáticamente en el navegador</div>
+    <div class="al-item">● Los saldos se calculan desde los asientos registrados</div>
+  </div>
+</div>
+
+<!-- PLAN DE CUENTAS -->
+<div class="view" id="view-cuentas">
+  <div class="tbl-card">
+    <div class="tbl-header">
+      <h3>Plan de Cuentas — DTAR Agente</h3>
+      <div class="filters">
+        <select id="filter-tipo" onchange="renderCuentas()">
+          <option value="">Todos los tipos</option>
+          <option value="Activo">Activo</option>
+          <option value="Pasivo">Pasivo</option>
+          <option value="Patrimonio Neto">Patrimonio Neto</option>
+          <option value="Resultados Positivos">Resultados Positivos</option>
+          <option value="Resultados Negativos">Resultados Negativos</option>
+        </select>
+        <select id="filter-grupo" onchange="renderCuentas()">
+          <option value="">Todos los grupos</option>
+          <option value="Caja y Bancos">Caja y Bancos</option>
+          <option value="Créditos">Créditos</option>
+          <option value="Otros Créditos">Otros Créditos</option>
+          <option value="Bienes de Cambio">Bienes de Cambio</option>
+          <option value="Inversiones">Inversiones</option>
+          <option value="Bienes de Uso">Bienes de Uso</option>
+          <option value="Deudas Comerciales">Deudas Comerciales</option>
+          <option value="Deudas Bancarias">Deudas Bancarias</option>
+          <option value="Otras Deudas">Otras Deudas</option>
+          <option value="Capital">Capital</option>
+          <option value="Reservas">Reservas</option>
+          <option value="Resultados Acumulados">Resultados Acumulados</option>
+          <option value="Operativos">Operativos</option>
+        </select>
+        <input type="text" id="search-cuenta" placeholder="Buscar cuenta..." oninput="renderCuentas()">
+      </div>
+    </div>
+    <div id="cuentas-list"></div>
+  </div>
+  <div class="actions">
+    <button class="btn-action" onclick="openModalCuenta()">+ Nueva Cuenta</button>
+    <button class="btn-action outline" onclick="showTab('asientos',document.querySelectorAll('.tab')[3])">✏️ Nuevo Asiento</button>
+  </div>
+</div>
+
+<!-- LIBRO MAYOR -->
+<div class="view" id="view-mayor">
+  <div class="tbl-card" style="margin-bottom:20px;">
+    <div class="tbl-header">
+      <h3>Libro Mayor — Movimientos por Cuenta</h3>
+      <div class="filters">
+        <select id="mayor-tipo" onchange="renderLibroMayor()">
+          <option value="">Todos los tipos</option>
+          <option value="Activo">Activo</option>
+          <option value="Pasivo">Pasivo</option>
+          <option value="Patrimonio Neto">Patrimonio Neto</option>
+          <option value="Resultados Positivos">Resultados Positivos</option>
+          <option value="Resultados Negativos">Resultados Negativos</option>
+        </select>
+        <select id="mayor-cuenta" onchange="verDetalleMayor()"><option value="">Seleccionar cuenta...</option></select>
+      </div>
+    </div>
+  </div>
+  <div class="kpi-grid">
+    <div class="kpi" style="--kpi-color:#6c63ff"><div class="kpi-lbl">Total Debe</div><div class="kpi-val" id="mayor-total-debe">$0</div><div class="kpi-sub">suma del debe</div></div>
+    <div class="kpi" style="--kpi-color:#ff6b6b"><div class="kpi-lbl">Total Haber</div><div class="kpi-val" id="mayor-total-haber">$0</div><div class="kpi-sub">suma del haber</div></div>
+    <div class="kpi" style="--kpi-color:#ffd166"><div class="kpi-lbl">Diferencia</div><div class="kpi-val" id="mayor-diferencia">$0</div><div class="kpi-sub">debe - haber</div></div>
+    <div class="kpi" style="--kpi-color:#00d4aa"><div class="kpi-lbl">Cuentas con movimiento</div><div class="kpi-val" id="mayor-cuentas-mov">0</div><div class="kpi-sub">cuentas activas</div></div>
+  </div>
+  <div id="mayor-resumen"></div>
+  <div class="tbl-card" id="mayor-detalle-card" style="display:none;">
+    <div class="tbl-header"><h3 id="mayor-detalle-titulo">Detalle de Cuenta</h3></div>
+    <table>
+      <thead><tr><th>Fecha</th><th>Asiento</th><th>Descripción</th><th class="num">Debe</th><th class="num">Haber</th><th class="num">Saldo</th></tr></thead>
+      <tbody id="mayor-detalle-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ASIENTOS -->
+<div class="view" id="view-asientos">
+  <div class="tbl-card">
+    <div class="tbl-header"><h3>Registrar Asiento Contable</h3></div>
+    <div class="modal-row">
+      <div class="modal-field"><label>Fecha</label><input type="date" id="asi-fecha"></div>
+      <div class="modal-field"><label>Descripción</label><input type="text" id="asi-desc" placeholder="Concepto del asiento"></div>
+    </div>
+    <div style="margin:16px 0;">
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:10px;color:var(--muted);font-size:.72rem;text-transform:uppercase;">
+        <span>Cuenta</span><span style="text-align:right;">Debe</span><span style="text-align:right;">Haber</span>
+      </div>
+      <div id="asi-lineas"></div>
+      <button class="btn-action outline" onclick="agregarLinea()" style="margin-top:10px;">+ Agregar línea</button>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:20px;padding:12px 0;border-top:1px solid var(--border);">
+      <div><span style="color:var(--muted);">Total Debe:</span> <strong id="asi-total-debe">$0</strong></div>
+      <div><span style="color:var(--muted);">Total Haber:</span> <strong id="asi-total-haber">$0</strong></div>
+    </div>
+    <div style="margin-top:16px;"><button class="btn-action" onclick="registrarAsiento()">Registrar Asiento</button></div>
+  </div>
+  <div class="tbl-card">
+    <div class="tbl-header">
+      <h3>Libro Diario — Asientos Registrados</h3>
+      <button class="btn-action outline" onclick="window.print()">🖨️ Imprimir</button>
+    </div>
+    <div id="asientos-list"><p style="color:var(--muted);text-align:center;padding:40px 0;">Sin asientos registrados aún</p></div>
+  </div>
+</div>
+
+<!-- ESTADOS FINANCIEROS -->
+<div class="view" id="view-estados">
+  <div class="grid2">
+    <div class="chart-card">
+      <h3>Balance General</h3>
+      <div class="tbl-card" style="margin:0;border:none;padding:0;">
+        <table><thead><tr><th>Cuenta</th><th class="num">Saldo</th></tr></thead><tbody id="bg-activo"></tbody></table>
+        <div style="padding:12px 0;border-top:1px solid var(--border);font-weight:700;">TOTAL ACTIVO: <span id="bg-total-activo">$0</span></div>
+        <table style="margin-top:16px;"><thead><tr><th>Cuenta</th><th class="num">Saldo</th></tr></thead><tbody id="bg-pasivo"></tbody></table>
+        <div style="padding:12px 0;border-top:1px solid var(--border);font-weight:700;">TOTAL PASIVO: <span id="bg-total-pasivo">$0</span></div>
+        <table style="margin-top:16px;"><thead><tr><th>Cuenta</th><th class="num">Saldo</th></tr></thead><tbody id="bg-patrimonio"></tbody></table>
+        <div style="padding:12px 0;border-top:1px solid var(--border);font-weight:700;">TOTAL PATRIMONIO: <span id="bg-total-patrimonio">$0</span></div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3>Estado de Resultados</h3>
+      <div class="tbl-card" style="margin:0;border:none;padding:0;">
+        <div style="font-size:.78rem;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Ingresos</div>
+        <table><tbody id="er-ingresos"></tbody></table>
+        <div style="padding:8px 0;border-top:1px solid var(--border);font-weight:700;color:var(--accent2);">TOTAL INGRESOS: <span id="er-total-ingresos">$0</span></div>
+        <div style="font-size:.78rem;color:var(--muted);text-transform:uppercase;margin:12px 0 8px;">Costos y Gastos</div>
+        <table><tbody id="er-gastos"></tbody></table>
+        <div style="padding:8px 0;border-top:1px solid var(--border);font-weight:700;color:var(--accent3);">TOTAL COSTOS Y GASTOS: <span id="er-total-gastos">$0</span></div>
+        <div style="padding:12px 0;border-top:2px solid var(--border);font-weight:700;font-size:1.1rem;">RESULTADO DEL EJERCICIO: <span id="er-resultado">$0</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</main>
+</div>
+
+<!-- Modal Nueva Cuenta -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-title">Agregar Cuenta</div>
+    <div class="modal-row">
+      <div class="modal-field"><label>Código</label><input type="text" id="f-cod" placeholder="Ej: 0070"></div>
+      <div class="modal-field"><label>Tipo</label>
+        <select id="f-tipo">
+          <option value="Activo">Activo</option>
+          <option value="Pasivo">Pasivo</option>
+          <option value="Patrimonio Neto">Patrimonio Neto</option>
+          <option value="Resultados Positivos">Resultados Positivos</option>
+          <option value="Resultados Negativos">Resultados Negativos</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-row">
+      <div class="modal-field" style="grid-column:1/-1;"><label>Nombre</label><input type="text" id="f-nombre" placeholder="Ej: Caja"></div>
+    </div>
+    <div class="modal-row">
+      <div class="modal-field" style="grid-column:1/-1;"><label>Grupo</label><input type="text" id="f-grupo" placeholder="Ej: Caja y Bancos"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn secondary" onclick="closeModal()">Cancelar</button>
+      <button class="modal-btn primary" onclick="guardarCuenta()">Guardar</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+const gc='rgba(255,255,255,.05)',tc='#8892a4',SK='contabot_dtar_agente';
+const DEFAULT=[
+  {cod:'001',tipo:'Activo',nombre:'Caja',grupo:'Caja y Bancos',debe:0,haber:0},
+  {cod:'002',tipo:'Activo',nombre:'Fondo Fijo',grupo:'Caja y Bancos',debe:0,haber:0},
+  {cod:'004',tipo:'Activo',nombre:'Banco',grupo:'Caja y Bancos',debe:0,haber:0},
+  {cod:'007',tipo:'Activo',nombre:'Deudores por Ventas',grupo:'Créditos',debe:0,haber:0},
+  {cod:'008',tipo:'Activo',nombre:'Documentos a Cobrar',grupo:'Créditos',debe:0,haber:0},
+  {cod:'011',tipo:'Activo',nombre:'Anticipos de Impuestos',grupo:'Otros Créditos',debe:0,haber:0},
+  {cod:'018',tipo:'Activo',nombre:'Mercaderías',grupo:'Bienes de Cambio',debe:0,haber:0},
+  {cod:'029',tipo:'Activo',nombre:'Rodados',grupo:'Bienes de Uso',debe:0,haber:0},
+  {cod:'030',tipo:'Activo',nombre:'Muebles y Utiles',grupo:'Bienes de Uso',debe:0,haber:0},
+  {cod:'031',tipo:'Activo',nombre:'Equipos y Tecnología',grupo:'Bienes de Uso',debe:0,haber:0},
+  {cod:'037',tipo:'Pasivo',nombre:'Proveedores',grupo:'Deudas Comerciales',debe:0,haber:0},
+  {cod:'038',tipo:'Pasivo',nombre:'Obligaciones a Pagar',grupo:'Deudas Comerciales',debe:0,haber:0},
+  {cod:'045',tipo:'Pasivo',nombre:'Sueldos a Pagar',grupo:'Otras Deudas',debe:0,haber:0},
+  {cod:'050',tipo:'Pasivo',nombre:'Gastos Generales a Pagar',grupo:'Otras Deudas',debe:0,haber:0},
+  {cod:'051',tipo:'Patrimonio Neto',nombre:'Capital Suscripto',grupo:'Capital',debe:0,haber:0},
+  {cod:'053',tipo:'Patrimonio Neto',nombre:'Reserva Legal',grupo:'Reservas',debe:0,haber:0},
+  {cod:'056',tipo:'Patrimonio Neto',nombre:'Ganancias y Pérdidas',grupo:'Resultados Acumulados',debe:0,haber:0},
+  {cod:'058',tipo:'Resultados Positivos',nombre:'Ventas de Servicios',grupo:'Operativos',debe:0,haber:0},
+  {cod:'059',tipo:'Resultados Positivos',nombre:'Ventas de Productos',grupo:'Operativos',debe:0,haber:0},
+  {cod:'060',tipo:'Resultados Positivos',nombre:'Otros Ingresos',grupo:'Operativos',debe:0,haber:0},
+  {cod:'061',tipo:'Resultados Negativos',nombre:'Costo de Ventas',grupo:'Operativos',debe:0,haber:0},
+  {cod:'062',tipo:'Resultados Negativos',nombre:'Gastos Administrativos',grupo:'Operativos',debe:0,haber:0},
+  {cod:'063',tipo:'Resultados Negativos',nombre:'Gastos de Comercialización',grupo:'Operativos',debe:0,haber:0},
+  {cod:'064',tipo:'Resultados Negativos',nombre:'Gastos Financieros',grupo:'Operativos',debe:0,haber:0}
+];
+let saved;try{saved=JSON.parse(localStorage.getItem(SK)||'null');}catch(e){saved=null;}
+let cuentas=saved?saved.cuentas:DEFAULT,asientos=saved?saved.asientos:[],lineas=[{cuenta:'',debe:0,haber:0}];
+let cA,cP,cPa,cR;
+
+function save(){try{localStorage.setItem(SK,JSON.stringify({cuentas,asientos}));}catch(e){}}
+function saldo(c){return c.haber-c.debe;}
+function totalTipo(t){return cuentas.filter(c=>c.tipo===t).reduce((s,c)=>s+saldo(c),0);}
+function fmt(n){return Math.abs(n).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});}
+
+function init(){
+  document.getElementById('total-cuentas').textContent=cuentas.length+' CUENTAS';
+  document.getElementById('status-cuentas').textContent='● Plan de cuentas cargado con '+cuentas.length+' cuentas';
+  document.getElementById('asi-fecha').valueAsDate=new Date();
+  renderKPIs();renderCharts();renderCuentas();renderAsientos();renderEstados();renderMayor();renderLineas();
+}
+
+function showTab(id,btn){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('view-'+id).classList.add('active');
+  if(btn)btn.classList.add('active');
+  if(id==='mayor')renderMayor();
+}
+
+function renderKPIs(){
+  const a=Math.max(0,totalTipo('Activo')),p=Math.max(0,totalTipo('Pasivo')),pa=Math.max(0,totalTipo('Patrimonio Neto'));
+  document.getElementById('kpi-total').textContent=cuentas.length;
+  document.getElementById('kpi-activo').textContent='$'+fmt(a);
+  document.getElementById('kpi-pasivo').textContent='$'+fmt(p);
+  document.getElementById('kpi-patrimonio').textContent='$'+fmt(pa);
+  document.getElementById('bal-activo').textContent='$'+fmt(a);
+  document.getElementById('bal-pasivo').textContent='$'+fmt(p);
+  const pn=document.getElementById('bal-patrimonio');
+  pn.textContent='$'+fmt(a-p);
+  pn.className='balance-val '+(a>=p?'pos':'neg');
+}
+
+function renderCharts(){
+  const cls=['#6c63ff','#00d4aa','#ff6b6b','#ffd166','#ff9f43','#54a0ff','#a55eea','#26de81'];
+  const gA=[...new Set(cuentas.filter(c=>c.tipo==='Activo').map(c=>c.grupo))];
+  const gP=[...new Set(cuentas.filter(c=>c.tipo==='Pasivo').map(c=>c.grupo))];
+  const gPa=[...new Set(cuentas.filter(c=>c.tipo==='Patrimonio Neto').map(c=>c.grupo))];
+  const vA=gA.map(g=>Math.max(0,cuentas.filter(c=>c.tipo==='Activo'&&c.grupo===g).reduce((s,c)=>s+saldo(c),0)));
+  const vP=gP.map(g=>Math.max(0,cuentas.filter(c=>c.tipo==='Pasivo'&&c.grupo===g).reduce((s,c)=>s+saldo(c),0)));
+  const vPa=gPa.map(g=>Math.max(0,cuentas.filter(c=>c.tipo==='Patrimonio Neto'&&c.grupo===g).reduce((s,c)=>s+saldo(c),0)));
+  const dopt={responsive:true,maintainAspectRatio:false,cutout:'55%',plugins:{legend:{position:'right',labels:{color:tc,padding:12,font:{size:11}}}}};
+  const bopt={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:tc},grid:{display:false}},y:{ticks:{color:tc},grid:{color:gc}}}};
+  if(cA)cA.destroy();cA=new Chart(document.getElementById('chart-activo'),{type:'doughnut',data:{labels:gA.length?gA:['Sin datos'],datasets:[{data:vA.length?vA:[1],backgroundColor:cls.slice(0,Math.max(gA.length,1)),borderWidth:0}]},options:dopt});
+  if(cP)cP.destroy();cP=new Chart(document.getElementById('chart-pasivo'),{type:'doughnut',data:{labels:gP.length?gP:['Sin datos'],datasets:[{data:vP.length?vP:[1],backgroundColor:cls.slice(0,Math.max(gP.length,1)),borderWidth:0}]},options:dopt});
+  if(cPa)cPa.destroy();cPa=new Chart(document.getElementById('chart-patrimonio'),{type:'bar',data:{labels:gPa.length?gPa:['Sin datos'],datasets:[{data:vPa.length?vPa:[0],backgroundColor:'rgba(255,209,102,.75)',borderRadius:6}]},options:bopt});
+  const ing=Math.max(0,totalTipo('Resultados Positivos')),gas=Math.max(0,totalTipo('Resultados Negativos'));
+  if(cR)cR.destroy();cR=new Chart(document.getElementById('chart-resultados'),{type:'bar',data:{labels:['Ingresos','Gastos'],datasets:[{data:[ing,gas],backgroundColor:['rgba(0,212,170,.75)','rgba(255,107,107,.75)'],borderRadius:6}]},options:bopt});
+}
+
+function renderCuentas(){
+  const ft=document.getElementById('filter-tipo').value,fg=document.getElementById('filter-grupo').value,fs=document.getElementById('search-cuenta').value.toLowerCase();
+  const fil=cuentas.filter(c=>(!ft||c.tipo===ft)&&(!fg||c.grupo===fg)&&(!fs||c.nombre.toLowerCase().includes(fs)));
+  const gps={};
+  fil.forEach(c=>{if(!gps[c.tipo])gps[c.tipo]={};if(!gps[c.tipo][c.grupo])gps[c.tipo][c.grupo]=[];gps[c.tipo][c.grupo].push(c);});
+  const pc={'Activo':'p-activo','Pasivo':'p-pasivo','Patrimonio Neto':'p-patrimonio','Resultados Positivos':'p-resultado-pos','Resultados Negativos':'p-resultado-neg'};
+  const rows=Object.keys(gps).map(tipo=>{
+    const items=Object.keys(gps[tipo]).map(grp=>gps[tipo][grp].map(c=>{
+      const s=saldo(c),col=s>=0?'var(--accent2)':'var(--accent3)';
+      return `<div class="ac-row"><span class="ac-cod">${esc(c.cod)}</span><span class="ac-name">${esc(c.nombre)}</span><span class="ac-cat">${esc(c.grupo)}</span><span class="ac-val" style="color:${col}">$${fmt(s)}</span></div>`;
+    }).join('')).join('');
+    return `<div class="ac-group open"><div class="ac-group-title" onclick="toggleGrupo(this)"><span class="ac-toggle">▶</span><span class="pill ${pc[tipo]||''}">${esc(tipo)}</span><h4>${esc(Object.keys(gps[tipo]).join(', '))}</h4><span class="ac-count">${fil.filter(c=>c.tipo===tipo).length} cuentas</span></div><div class="ac-items">${items}</div></div>`;
+  }).join('');
+  document.getElementById('cuentas-list').innerHTML=rows||'<p style="color:var(--muted);text-align:center;padding:40px;">Sin cuentas</p>';
+}
+
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+function toggleGrupo(el){el.parentElement.classList.toggle('open');}
+
+function renderMayor(){
+  const tipo=document.getElementById('mayor-tipo').value;
+  const sel=document.getElementById('mayor-cuenta');
+  sel.innerHTML='<option value="">Seleccionar cuenta...</option>'+cuentas.filter(c=>!tipo||c.tipo===tipo).map(c=>`<option value="${esc(c.cod)}">${esc(c.cod+' - '+c.nombre)}</option>`).join('');
+  const td=cuentas.reduce((s,c)=>s+c.debe,0),th=cuentas.reduce((s,c)=>s+c.haber,0),dif=td-th;
+  document.getElementById('mayor-total-debe').textContent='$'+fmt(td);
+  document.getElementById('mayor-total-haber').textContent='$'+fmt(th);
+  document.getElementById('mayor-diferencia').textContent='$'+fmt(dif);
+  document.getElementById('mayor-diferencia').style.color=dif===0?'var(--accent2)':'var(--accent3)';
+  document.getElementById('mayor-cuentas-mov').textContent=cuentas.filter(c=>c.debe>0||c.haber>0).length;
+  const rows=cuentas.filter(c=>(!tipo||c.tipo===tipo)&&(c.debe>0||c.haber>0)).map(c=>{
+    const s=saldo(c);
+    return `<tr onclick="verDetalleMayor('${esc(c.cod)}')" style="cursor:pointer;"><td>${esc(c.cod)}</td><td>${esc(c.nombre)}</td><td>${esc(c.grupo)}</td><td class="num" style="color:var(--accent2);">$${fmt(c.debe)}</td><td class="num" style="color:var(--accent3);">$${fmt(c.haber)}</td><td class="num" style="color:${s>=0?'var(--accent2)':'var(--accent3)'};">$${fmt(s)}</td></tr>`;
+  }).join('');
+  document.getElementById('mayor-resumen').innerHTML=`<div class="tbl-card" style="margin-bottom:20px;"><div class="tbl-header"><h3>Resumen — Click en cuenta para detalle</h3></div><table><thead><tr><th>Código</th><th>Cuenta</th><th>Grupo</th><th class="num">Debe</th><th class="num">Haber</th><th class="num">Saldo</th></tr></thead><tbody>${rows||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:40px;">Sin movimientos</td></tr>'}</tbody></table></div>`;
+}
+
+function verDetalleMayor(cod){
+  if(!cod)cod=document.getElementById('mayor-cuenta').value;
+  if(!cod)return;
+  const c=cuentas.find(x=>x.cod===cod);if(!c)return;
+  document.getElementById('mayor-detalle-card').style.display='block';
+  document.getElementById('mayor-detalle-titulo').textContent='Detalle: '+c.cod+' - '+c.nombre;
+  const movs=[];
+  asientos.forEach((a,i)=>a.lineas.forEach(l=>{if(l.cuenta===cod)movs.push({fecha:a.fecha,desc:a.desc,num:i+1,debe:l.debe,haber:l.haber});}));
+  let s=0;
+  const rows=movs.map(m=>{s+=m.debe-m.haber;return `<tr><td>${esc(m.fecha)}</td><td>Asiento #${m.num}</td><td>${esc(m.desc)}</td><td class="num" style="color:var(--accent2);">${m.debe>0?'$'+fmt(m.debe):'-'}</td><td class="num" style="color:var(--accent3);">${m.haber>0?'$'+fmt(m.haber):'-'}</td><td class="num" style="color:${s>=0?'var(--accent2)':'var(--accent3)'};font-weight:600;">$${fmt(s)}</td></tr>`;}).join('');
+  document.getElementById('mayor-detalle-body').innerHTML=rows||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;">Sin movimientos</td></tr>';
+}
+
+function renderLineas(){
+  document.getElementById('asi-lineas').innerHTML=lineas.map((l,i)=>`<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:8px;"><select onchange="lineas[${i}].cuenta=cuentas[this.value]?.cod||''" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:6px;"><option value="">Cuenta...</option>${cuentas.map((c,j)=>`<option value="${j}"${l.cuenta===c.cod?' selected':''}>${esc(c.cod+' - '+c.nombre)}</option>`).join('')}</select><input type="number" placeholder="$0" value="${l.debe||''}" oninput="lineas[${i}].debe=parseFloat(this.value)||0;actualizarTotales()" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:6px;text-align:right;"><input type="number" placeholder="$0" value="${l.haber||''}" oninput="lineas[${i}].haber=parseFloat(this.value)||0;actualizarTotales()" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:6px;text-align:right;"></div>`).join('');
+}
+
+function agregarLinea(){lineas.push({cuenta:'',debe:0,haber:0});renderLineas();}
+
+function actualizarTotales(){
+  const td=lineas.reduce((s,l)=>s+l.debe,0),th=lineas.reduce((s,l)=>s+l.haber,0);
+  document.getElementById('asi-total-debe').textContent='$'+fmt(td);
+  document.getElementById('asi-total-haber').textContent='$'+fmt(th);
+}
+
+function registrarAsiento(){
+  const fecha=document.getElementById('asi-fecha').value,desc=document.getElementById('asi-desc').value.trim();
+  if(!desc){showToast('Ingresá una descripción','error');return;}
+  const td=lineas.reduce((s,l)=>s+l.debe,0),th=lineas.reduce((s,l)=>s+l.haber,0);
+  if(Math.abs(td-th)>0.01){showToast('Asiento no cuadrado (Debe ≠ Haber)','error');return;}
+  const val=lineas.filter(l=>l.cuenta||l.debe>0||l.haber>0);
+  if(val.length<2){showToast('Mínimo 2 líneas','error');return;}
+  val.forEach(l=>{const c=cuentas.find(x=>x.cod===l.cuenta);if(c){c.debe+=l.debe;c.haber+=l.haber;}});
+  asientos.unshift({fecha,desc,lineas:[...val],total:td});
+  save();
+  lineas=[{cuenta:'',debe:0,haber:0}];
+  document.getElementById('asi-desc').value='';
+  document.getElementById('asi-fecha').valueAsDate=new Date();
+  renderLineas();actualizarTotales();renderAsientos();renderKPIs();renderCharts();renderCuentas();renderEstados();
+  showToast('Asiento registrado','success');
+}
+
+function renderAsientos(){
+  if(!asientos.length){document.getElementById('asientos-list').innerHTML='<p style="color:var(--muted);text-align:center;padding:40px 0;">Sin asientos aún</p>';return;}
+  document.getElementById('asientos-list').innerHTML=asientos.map(a=>`<div style="background:var(--bg);border-radius:8px;padding:14px;margin-bottom:12px;"><div style="display:flex;justify-content:space-between;margin-bottom:10px;"><strong>${esc(a.fecha)}</strong><span style="color:var(--muted);">${esc(a.desc)}</span><span style="color:var(--accent2);">$${fmt(a.total)}</span></div><table style="font-size:.8rem;"><thead><tr><th>Cuenta</th><th class="num">Debe</th><th class="num">Haber</th></tr></thead><tbody>${a.lineas.map(l=>`<tr><td>${esc(cuentas.find(c=>c.cod===l.cuenta)?.nombre||l.cuenta||'-')}</td><td class="num">${l.debe>0?'$'+fmt(l.debe):'-'}</td><td class="num">${l.haber>0?'$'+fmt(l.haber):'-'}</td></tr>`).join('')}</tbody></table></div>`).join('');
+}
+
+function renderEstados(){
+  const aC=cuentas.filter(c=>c.tipo==='Activo'&&saldo(c)>0),pC=cuentas.filter(c=>c.tipo==='Pasivo'&&saldo(c)>0),paC=cuentas.filter(c=>c.tipo==='Patrimonio Neto'&&saldo(c)>0);
+  const row=(c,col)=>`<tr><td>${esc(c.nombre)}</td><td class="num"${col?' style="color:'+col+';"':''}>$${fmt(saldo(c))}</td></tr>`;
+  document.getElementById('bg-activo').innerHTML=aC.map(c=>row(c)).join('')||'<tr><td colspan="2" style="color:var(--muted);">Sin activos</td></tr>';
+  document.getElementById('bg-pasivo').innerHTML=pC.map(c=>row(c)).join('')||'<tr><td colspan="2" style="color:var(--muted);">Sin pasivos</td></tr>';
+  document.getElementById('bg-patrimonio').innerHTML=paC.map(c=>row(c)).join('')||'<tr><td colspan="2" style="color:var(--muted);">Sin patrimonio</td></tr>';
+  document.getElementById('bg-total-activo').textContent='$'+fmt(totalTipo('Activo'));
+  document.getElementById('bg-total-pasivo').textContent='$'+fmt(totalTipo('Pasivo'));
+  document.getElementById('bg-total-patrimonio').textContent='$'+fmt(totalTipo('Patrimonio Neto'));
+  const iC=cuentas.filter(c=>c.tipo==='Resultados Positivos'&&saldo(c)>0),gC=cuentas.filter(c=>c.tipo==='Resultados Negativos'&&saldo(c)>0);
+  document.getElementById('er-ingresos').innerHTML=iC.map(c=>row(c,'var(--accent2)')).join('')||'<tr><td colspan="2" style="color:var(--muted);">Sin ingresos</td></tr>';
+  document.getElementById('er-gastos').innerHTML=gC.map(c=>row(c,'var(--accent3)')).join('')||'<tr><td colspan="2" style="color:var(--muted);">Sin gastos</td></tr>';
+  const ti=totalTipo('Resultados Positivos'),tg=totalTipo('Resultados Negativos'),res=ti-tg;
+  document.getElementById('er-total-ingresos').textContent='$'+fmt(ti);
+  document.getElementById('er-total-gastos').textContent='$'+fmt(tg);
+  const re=document.getElementById('er-resultado');re.textContent='$'+fmt(res);re.style.color=res>=0?'var(--accent2)':'var(--accent3)';
+}
+
+function openModalCuenta(){document.getElementById('modalOverlay').classList.add('active');}
+function closeModal(){document.getElementById('modalOverlay').classList.remove('active');}
+
+function guardarCuenta(){
+  const cod=document.getElementById('f-cod').value.trim(),tipo=document.getElementById('f-tipo').value,nombre=document.getElementById('f-nombre').value.trim(),grupo=document.getElementById('f-grupo').value.trim();
+  if(!cod||!nombre||!grupo){showToast('Completá todos los campos','error');return;}
+  if(cuentas.some(c=>c.cod===cod)){showToast('Código ya existe','error');return;}
+  cuentas.push({cod,tipo,nombre,grupo,debe:0,haber:0});save();closeModal();init();showToast('Cuenta agregada','success');
+}
+
+function showToast(msg,type='success'){
+  const t=document.getElementById('toast');
+  t.innerHTML='';
+  const d=document.createElement('div');d.className='toast';
+  const ic=document.createElement('span');ic.textContent=type==='success'?'✅':'❌';
+  const tx=document.createTextNode(msg);
+  d.appendChild(ic);d.appendChild(tx);t.appendChild(d);
+  setTimeout(()=>t.innerHTML='',3000);
+}
+
+document.getElementById('modalOverlay').addEventListener('click',e=>{if(e.target.id==='modalOverlay')closeModal();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+init();
+</script>
+</body>
+</html>
