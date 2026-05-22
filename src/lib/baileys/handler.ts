@@ -133,21 +133,45 @@ export async function handleIncomingMessage(
   const { mode } = conversation;
   if (mode !== "AI") return;
 
-  // LID onboarding — collect real name before passing to Lucy
-  if (remoteJid.endsWith("@lid")) {
+  // LID onboarding — collect real phone when contact has no alias yet
+  if (remoteJid.endsWith("@lid") && !conversation.phone_alias) {
     const userCount = countUserMessages(conversation.id);
+
+    const extractPhone = (t: string): string | null => {
+      const m =
+        t.match(/\+?(53[5-9]\d{7})/) ||
+        t.match(/\b([5-9]\d{7})\b/) ||
+        t.match(/\b(\d{8,13})\b/);
+      return m ? m[1] : null;
+    };
+
     if (userCount === 1) {
-      const welcome = "¡Hola! 👋 Bienvenido. ¿Cuál es tu nombre y apellidos?";
+      const welcome = "¡Hola! 👋 Para registrarte, ¿puedes decirme tu nombre y número de teléfono?";
       insertMessage(conversation.id, "assistant", welcome);
       await sock.sendMessage(remoteJid, { text: welcome });
       return;
     }
-    if (userCount === 2) {
-      // save whatever they typed as their name
-      updateConversationName(conversation.id, text.trim());
-      console.log(`[handler] LID name saved: "${text.trim()}"`);
-      // fall through to Lucy
+
+    const extracted = extractPhone(text);
+    if (extracted) {
+      resolveContactPhone(phone, extracted);
+      // also save name from anything before the number
+      const namePart = text.replace(/[\d\s\+\-]+$/, "").trim();
+      if (namePart) updateConversationName(conversation.id, namePart);
+      const confirm = `✅ ¡Gracias! Registré tu número +${extracted}. ¿En qué puedo ayudarte?`;
+      insertMessage(conversation.id, "assistant", confirm);
+      await sock.sendMessage(remoteJid, { text: confirm });
+      console.log(`[handler] LID resolved phone=${phone} → +${extracted}`);
+      return;
     }
+
+    if (userCount === 2) {
+      const ask = "No pude identificar tu número. Escríbelo así: *5352123456*";
+      insertMessage(conversation.id, "assistant", ask);
+      await sock.sendMessage(remoteJid, { text: ask });
+      return;
+    }
+    // userCount >= 3 without phone → silent attempt, fall through to Lucy
   }
 
   // Admin inventory commands — intercept before triage
