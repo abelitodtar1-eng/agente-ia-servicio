@@ -250,6 +250,12 @@ export function backfillPhoneAliases(): number {
   return rows.length;
 }
 
+export function countUserMessages(conversationId: number): number {
+  const row = db.prepare("SELECT COUNT(*) as n FROM messages WHERE conversation_id = ? AND role = 'user'")
+    .get(conversationId) as { n: number };
+  return row.n;
+}
+
 export function listConversations(): (Conversation & { last_message: string | null; last_message_role: string | null })[] {
   return db.prepare(`
     SELECT c.*,
