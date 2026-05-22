@@ -138,11 +138,12 @@ export async function handleIncomingMessage(
     const userCount = countUserMessages(conversation.id);
 
     const extractPhone = (t: string): string | null => {
-      const m =
-        t.match(/\+?(53[5-9]\d{7})/) ||
-        t.match(/\b([5-9]\d{7})\b/) ||
-        t.match(/\b(\d{8,13})\b/);
-      return m ? m[1] : null;
+      const full = t.match(/\+?(53[5-9]\d{7})/);
+      if (full) return full[1];
+      const local = t.match(/\b([5-9]\d{7})\b/);
+      if (local) return `53${local[1]}`;        // prepend Cuban country code
+      const generic = t.match(/\b(\d{9,13})\b/);
+      return generic ? generic[1] : null;
     };
 
     if (userCount === 1) {
