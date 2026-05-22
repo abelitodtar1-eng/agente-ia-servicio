@@ -17,6 +17,7 @@ import {
   setMode,
   resolveContactPhone,
   countUserMessages,
+  updateConversationName,
   type Conversation,
 } from "../db";
 import { triageMessage, type TriageDecision } from "../triage";
@@ -132,36 +133,21 @@ export async function handleIncomingMessage(
   const { mode } = conversation;
   if (mode !== "AI") return;
 
-  // LID onboarding — ask for real phone when contact has no alias yet
-  if (remoteJid.endsWith("@lid") && !conversation.phone_alias) {
+  // LID onboarding — collect real name before passing to Lucy
+  if (remoteJid.endsWith("@lid")) {
     const userCount = countUserMessages(conversation.id);
-    const extractPhone = (t: string): string | null => {
-      const m =
-        t.match(/\+?(53[5-9]\d{7})/) ||
-        t.match(/\b([5-9]\d{7})\b/) ||
-        t.match(/\b(\d{8,13})\b/);
-      return m ? m[1] : null;
-    };
-
     if (userCount === 1) {
-      const welcome = `¡Hola${conversation.name ? ` ${conversation.name}` : ""}! 👋 Para atenderte mejor, ¿puedes decirme tu nombre y número de teléfono?`;
+      const welcome = "¡Hola! 👋 Bienvenido. ¿Cuál es tu nombre y apellidos?";
       insertMessage(conversation.id, "assistant", welcome);
       await sock.sendMessage(remoteJid, { text: welcome });
       return;
     }
-
-    const extracted = extractPhone(text);
-    if (extracted) {
-      resolveContactPhone(phone, extracted);
-      console.log(`[handler] LID resolved phone=${phone} → +${extracted}`);
-      // fall through to normal AI processing
-    } else if (userCount === 2) {
-      const ask = "No pude identificar tu número. ¿Puedes escribirlo con el formato 535XXXXXXX?";
-      insertMessage(conversation.id, "assistant", ask);
-      await sock.sendMessage(remoteJid, { text: ask });
-      return;
+    if (userCount === 2) {
+      // save whatever they typed as their name
+      updateConversationName(conversation.id, text.trim());
+      console.log(`[handler] LID name saved: "${text.trim()}"`);
+      // fall through to Lucy
     }
-    // userCount >= 3 and still no phone → let AI handle normally
   }
 
   // Admin inventory commands — intercept before triage
