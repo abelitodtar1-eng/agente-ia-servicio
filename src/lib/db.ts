@@ -848,4 +848,65 @@ export function findProductByName(nombre: string): Product | undefined {
   ) as Product | undefined;
 }
 
+// ─── Pedidos ──────────────────────────────────────────────────────────────────
+db.prepare(`CREATE TABLE IF NOT EXISTS pedidos (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  conversation_id  INTEGER REFERENCES conversations(id),
+  phone            TEXT NOT NULL,
+  nombre_cliente   TEXT NOT NULL DEFAULT '',
+  servicio         TEXT NOT NULL DEFAULT '',
+  id_servicio      TEXT NOT NULL DEFAULT '',
+  categoria        TEXT NOT NULL DEFAULT '',
+  precio_usd       REAL NOT NULL DEFAULT 0,
+  canal            TEXT NOT NULL DEFAULT 'WhatsApp',
+  estado           TEXT CHECK(estado IN ('pendiente','confirmado','rechazado')) NOT NULL DEFAULT 'pendiente',
+  notas            TEXT NOT NULL DEFAULT '',
+  created_at       INTEGER NOT NULL DEFAULT (unixepoch()),
+  updated_at       INTEGER NOT NULL DEFAULT (unixepoch())
+)`).run();
+
+export interface Pedido {
+  id: number;
+  conversation_id: number | null;
+  phone: string;
+  nombre_cliente: string;
+  servicio: string;
+  id_servicio: string;
+  categoria: string;
+  precio_usd: number;
+  canal: string;
+  estado: "pendiente" | "confirmado" | "rechazado";
+  notas: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export function listPedidos(estado?: string): Pedido[] {
+  if (estado) {
+    return db.prepare("SELECT * FROM pedidos WHERE estado = ? ORDER BY created_at DESC").all(estado) as Pedido[];
+  }
+  return db.prepare("SELECT * FROM pedidos ORDER BY created_at DESC").all() as Pedido[];
+}
+
+export function createPedido(p: {
+  phone: string; nombre_cliente: string; servicio: string; id_servicio: string;
+  categoria: string; precio_usd: number; canal: string; notas: string; conversation_id?: number | null;
+}): Pedido {
+  const conv = p.conversation_id ?? (db.prepare("SELECT id FROM conversations WHERE phone = ?").get(p.phone) as { id: number } | undefined)?.id ?? null;
+  return db.prepare(`
+    INSERT INTO pedidos (conversation_id, phone, nombre_cliente, servicio, id_servicio, categoria, precio_usd, canal, notas)
+    VALUES (?,?,?,?,?,?,?,?,?) RETURNING *
+  `).get(conv, p.phone, p.nombre_cliente, p.servicio, p.id_servicio, p.categoria, p.precio_usd, p.canal, p.notas) as Pedido;
+}
+
+export function updatePedidoEstado(id: number, estado: "confirmado" | "rechazado"): Pedido | undefined {
+  return db.prepare(
+    "UPDATE pedidos SET estado = ?, updated_at = unixepoch() WHERE id = ? RETURNING *"
+  ).get(estado, id) as Pedido | undefined;
+}
+
+export function getPedido(id: number): Pedido | undefined {
+  return db.prepare("SELECT * FROM pedidos WHERE id = ?").get(id) as Pedido | undefined;
+}
+
 
