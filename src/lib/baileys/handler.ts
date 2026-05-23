@@ -3,24 +3,14 @@ import {
   getOrCreateConversation,
   insertMessage,
   getRecentHistory,
-  getConnectionState,
   enqueueOutbox,
-  upsertAppointment,
-  cancelAppointment as cancelAppointmentDB,
-  getAppointmentsByConversation,
-  getSystemPrompt,
-  getWebhookUrl,
-  getInventarioWebhookUrl,
-  getContabilidadWebhookUrl,
   getVendedoraWebhookUrl,
   getAdminPhone,
-  setMode,
   resolveContactPhone,
   countUserMessages,
   updateConversationName,
   type Conversation,
 } from "../db";
-import { triageMessage, type TriageDecision } from "../triage";
 import { handleProductCommand } from "../product-commands";
 
 function extractText(msg: proto.IWebMessageInfo): string | null {
@@ -31,38 +21,17 @@ function extractText(msg: proto.IWebMessageInfo): string | null {
   );
 }
 
-function resolveWebhookUrl(decision: TriageDecision): string {
-  if (decision === "contabilidad") {
-    return (
-      process.env.N8N_WEBHOOK_CONTABILIDAD ||
-      getContabilidadWebhookUrl() ||
-      process.env.N8N_WEBHOOK_URL ||
-      getWebhookUrl()
-    );
-  }
-  if (decision === "vendedora") {
-    return (
-      process.env.N8N_WEBHOOK_VENDEDORA ||
-      getVendedoraWebhookUrl() ||
-      process.env.N8N_WEBHOOK_URL ||
-      getWebhookUrl()
-    );
-  }
-  return (
-    process.env.N8N_WEBHOOK_INVENTARIO ||
-    getInventarioWebhookUrl() ||
-    process.env.N8N_WEBHOOK_URL ||
-    getWebhookUrl()
-  );
-}
-
-async function processWithN8N(phone: string, message: string, decision: TriageDecision): Promise<string> {
+async function processWithVendedora(phone: string, message: string): Promise<string> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60_000);
   try {
-    const webhookUrl = resolveWebhookUrl(decision);
+    const webhookUrl =
+      process.env.N8N_WEBHOOK_VENDEDORA ||
+      getVendedoraWebhookUrl() ||
+      process.env.N8N_WEBHOOK_URL ||
+      "";
     if (!webhookUrl) throw new Error("Webhook URL no configurada");
-    console.log(`[handler] → n8n [${decision}] phone=${phone}`);
+    console.log(`[handler] → n8n [vendedora] phone=${phone}`);
     const resp = await fetch(webhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -141,7 +110,7 @@ export async function handleIncomingMessage(
       const full = t.match(/\+?(53[5-9]\d{7})/);
       if (full) return full[1];
       const local = t.match(/\b([5-9]\d{7})\b/);
-      if (local) return `53${local[1]}`;        // prepend Cuban country code
+      if (local) return `53${local[1]}`;
       const generic = t.match(/\b(\d{9,13})\b/);
       return generic ? generic[1] : null;
     };
@@ -156,7 +125,6 @@ export async function handleIncomingMessage(
     const extracted = extractPhone(text);
     if (extracted) {
       resolveContactPhone(phone, extracted);
-      // also save name from anything before the number
       const namePart = text.replace(/[\d\s\+\-]+$/, "").trim();
       if (namePart) updateConversationName(conversation.id, namePart);
       const confirm = `✅ ¡Gracias! Registré tu número +${extracted}. ¿En qué puedo ayudarte?`;
@@ -172,10 +140,9 @@ export async function handleIncomingMessage(
       await sock.sendMessage(remoteJid, { text: ask });
       return;
     }
-    // userCount >= 3 without phone → silent attempt, fall through to Lucy
   }
 
-  // Admin inventory commands — intercept before triage
+  // Admin inventory commands — intercept before n8n
   const adminPhone = getAdminPhone();
   if (adminPhone && phone === adminPhone) {
     const result = handleProductCommand(text);
@@ -188,17 +155,7 @@ export async function handleIncomingMessage(
   }
 
   try {
-    const decision = await triageMessage(text);
-    if (decision === "escalate") {
-      setMode(conversation.id, "HUMAN");
-      const escMsg = "Te estoy conectando con un agente humano. Por favor espera un momento.";
-      insertMessage(conversation.id, "assistant", escMsg);
-      await sock.sendMessage(remoteJid, { text: escMsg });
-      console.log(`[handler] escalated to HUMAN phone=${phone}`);
-      return;
-    }
-
-    const reply = await processWithN8N(phone, text, decision);
+    const reply = await processWithVendedora(phone, text);
     insertMessage(conversation.id, "assistant", reply);
     enqueueOutbox(conversation.id, remoteJid, reply);
     console.log(`[handler] ← reply queued to outbox (${reply.length} chars)`);
