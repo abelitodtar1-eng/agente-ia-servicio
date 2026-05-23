@@ -200,8 +200,8 @@ export async function handleIncomingMessage(
 
     const reply = await processWithN8N(phone, text, decision);
     insertMessage(conversation.id, "assistant", reply);
-    await sock.sendMessage(remoteJid, { text: reply });
-    console.log(`[handler] ← reply sent (${reply.length} chars)`);
+    enqueueOutbox(conversation.id, phone, reply);
+    console.log(`[handler] ← reply queued to outbox (${reply.length} chars)`);
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : String(err);
     const cause = (err as { cause?: unknown })?.cause;
