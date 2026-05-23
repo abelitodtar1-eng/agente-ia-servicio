@@ -51,7 +51,7 @@ function clearAuth() {
 }
 
 function phoneToJid(phone: string): string {
-  // LIDs son identificadores largos (14+ dígitos), telefonos reales suelen ser <=13
+  if (phone.includes("@")) return phone;
   const suffix = phone.length > 13 ? "@lid" : "@s.whatsapp.net";
   return `${phone}${suffix}`;
 }
