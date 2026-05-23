@@ -65,6 +65,7 @@ export function ChatbotView() {
   });
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  // webhook URL solo para mostrar estado; el envío va por /api/chat (proxy server-side)
   useEffect(() => {
     fetch("/api/settings/webhook")
       .then(r => r.json())
@@ -79,27 +80,21 @@ export function ChatbotView() {
   async function send() {
     const text = input.trim();
     if (!text || sending) return;
-    if (!webhookUrl) {
-      setMessages((prev) => [...prev, { role: "error", content: "Webhook no configurado. Configúralo en la pestaña Webhook (campo URL general)." }]);
-      return;
-    }
     setInput("");
     setSending(true);
     setMessages((prev) => [...prev, { role: "user", content: text }]);
 
     try {
-      const phone = `webchat_${sessionId}@web`;
-      const res = await fetch(webhookUrl, {
+      const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, message: text }),
+        body: JSON.stringify({ message: text, sessionId }),
       });
-      if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        setMessages((prev) => [...prev, { role: "error", content: `Webhook respondió ${res.status}${body ? `: ${body.slice(0, 80)}` : ""}` }]);
+      const data = await res.json() as { response?: string; error?: string };
+      if (!res.ok || data.error) {
+        setMessages((prev) => [...prev, { role: "error", content: data.error ?? `Error ${res.status}` }]);
         return;
       }
-      const data = await res.json() as { response?: string };
       setMessages((prev) => [...prev, { role: "bot", content: data.response ?? "Sin respuesta del bot." }]);
     } catch (e) {
       setMessages((prev) => [...prev, { role: "error", content: `Sin conexión: ${e instanceof Error ? e.message : String(e)}` }]);

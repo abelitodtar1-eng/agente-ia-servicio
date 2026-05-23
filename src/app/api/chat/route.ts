@@ -30,8 +30,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Webhook respondió ${resp.status}: ${body.slice(0, 100)}` }, { status: 502 });
     }
 
-    const data = await resp.json() as { response?: string };
-    return NextResponse.json({ response: data.response ?? "Sin respuesta del bot." });
+    const raw = await resp.text();
+    let data: { response?: string } = {};
+    try { if (raw) data = JSON.parse(raw); } catch { /* n8n devolvió texto plano */ }
+    return NextResponse.json({ response: data.response ?? raw || "Sin respuesta del bot." });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ error: `Error: ${msg}` }, { status: 500 });
