@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     const raw = await resp.text();
     let data: { response?: string } = {};
     try { if (raw) data = JSON.parse(raw); } catch { /* n8n devolvió texto plano */ }
-    return NextResponse.json({ response: data.response ?? raw || "Sin respuesta del bot." });
+    return NextResponse.json({ response: data.response ?? (raw || "Sin respuesta del bot.") });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ error: `Error: ${msg}` }, { status: 500 });
